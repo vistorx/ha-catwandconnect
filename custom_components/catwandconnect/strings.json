@@ -110,5 +110,11 @@
     "locked_out": {
       "message": "Too many wrong PINs. Wait {retry_after} seconds, then try again."
     }
+  },
+  "issues": {
+    "firmware_too_old": {
+      "title": "{name}'s firmware is too old",
+      "description": "**{name}** runs firmware {version}, too old for the integration. Update the robot to version {min_firmware} or later ([how to update]({update_url})), then reload the integration entry."
+    }
   }
 }
