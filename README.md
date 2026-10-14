@@ -6,9 +6,9 @@
 
 The Home Assistant integration for [CatWandConnect](https://github.com/vistorx/CatWandConnect), the open-hardware robot that plays with your cat by moving a toy wand.
 
-> **Status: in development, planned for CatWandConnect V2.** Nothing to install yet. Today, connect the robot to Home Assistant over MQTT: see [Set up Home Assistant](https://vistorx.github.io/CatWandConnect/home-assistant/).
+> **Status: first release, being tested.** Needs CatWandConnect firmware **0.2.0-beta.2** or later and Home Assistant **2026.10** or later. The [MQTT connection](https://vistorx.github.io/CatWandConnect/home-assistant/) keeps working for any version.
 
-## What it will do
+## What it does
 
 - **Finds the robot by itself.** Home Assistant shows it under *Discovered*; click **Add** and it's set up. No MQTT broker, no extra user.
 - **Talks to it directly** on your local network, with live updates and no cloud.
@@ -19,7 +19,14 @@ The MQTT connection stays supported. Pick the one that suits you: this integrati
 
 ## Installation
 
-Through [HACS](https://hacs.xyz/), once the first release is out. The steps will be on the [CatWandConnect website](https://vistorx.github.io/CatWandConnect/home-assistant/).
+Through [HACS](https://hacs.xyz/), as a custom repository:
+
+1. In Home Assistant, open **HACS**, the three dots at the top right, **Custom repositories**.
+2. Add `https://github.com/vistorx/ha-catwandconnect` with the type **Integration**.
+3. Search for **CatWandConnect** in HACS, **Download**, then restart Home Assistant.
+4. The robot shows under **Settings → Devices & services → Discovered**. Click **Add** (or **Add integration → CatWandConnect** and type its IP address).
+
+Full guide, dashboard and troubleshooting: [Home Assistant on the CatWandConnect website](https://vistorx.github.io/CatWandConnect/home-assistant/).
 
 ## Help and bug reports
 
