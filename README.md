@@ -28,6 +28,10 @@ Through [HACS](https://hacs.xyz/), as a custom repository:
 
 Full guide, dashboard and troubleshooting: [Home Assistant on the CatWandConnect website](https://vistorx.github.io/CatWandConnect/home-assistant/).
 
+## What's new
+
+See the [changelog](CHANGELOG.md). New versions are announced in the CatWandConnect Discord `#announcements` channel.
+
 ## Help and bug reports
 
 Support for this integration happens in the main CatWandConnect repository, not here:
@@ -39,6 +43,8 @@ Support for this integration happens in the main CatWandConnect repository, not 
 See [Getting help](https://vistorx.github.io/CatWandConnect/support/).
 
 ## Contributing
+
+A change users notice adds a line under `## Unreleased` in `CHANGELOG.md`, written for them. Releasing `vX.Y.Z` needs that section renamed to the version: the release workflow turns it into the release notes and the Discord announcement.
 
 Pull requests are welcome here. For anything beyond a small fix, open an issue in [CatWandConnect](https://github.com/vistorx/CatWandConnect/issues) first so we can agree on the approach. The integration only uses the robot's documented [API](https://vistorx.github.io/CatWandConnect/api/); changes to the robot itself go to the main repository.
 

@@ -1,0 +1,42 @@
+name: Release
+
+# Publishing a GitHub release (vX.Y.Z tag) checks that CHANGELOG.md has the
+# version's section, sets it as the release notes, and announces it in the
+# CatWandConnect Discord #announcements channel.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    name: Notes and announcement
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: python scripts/test_release_notes.py
+      - name: Release notes from CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          previous=$(git describe --tags --abbrev=0 --match 'v*' "${TAG}^" 2>/dev/null || true)
+          python scripts/release_notes.py notes "$TAG" "$previous" > notes.md
+          gh release edit "$TAG" --notes-file notes.md
+      - name: Announce on Discord
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ANNOUNCE_WEBHOOK }}
+          TAG: ${{ github.event.release.tag_name }}
+          URL: ${{ github.event.release.html_url }}
+        run: |
+          [ -n "$WEBHOOK" ] || { echo "No DISCORD_ANNOUNCE_WEBHOOK secret"; exit 0; }
+          python scripts/release_notes.py discord "$TAG" "CatWandConnect for Home Assistant" "$URL" > msg.txt
+          python -c "import json; print(json.dumps({'content': open('msg.txt').read(), 'allowed_mentions': {'parse': []}}))" > msg.json
+          curl -fsS -H 'Content-Type: application/json' --data @msg.json "$WEBHOOK" || echo "Discord post failed"
