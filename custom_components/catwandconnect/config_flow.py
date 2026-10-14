@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ipaddress import IPv6Address
 from collections.abc import Mapping
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -19,6 +20,8 @@ from .const import CONF_PIN, DOMAIN, MIN_API_VERSION, MIN_FIRMWARE, UPDATE_URL
 USER_SCHEMA = vol.Schema({vol.Required(CONF_HOST): str})
 PIN_SCHEMA = vol.Schema({vol.Required(CONF_PIN): str})
 TOO_OLD_PLACEHOLDERS = {"min_firmware": MIN_FIRMWARE, "update_url": UPDATE_URL}
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _supported(api: int | None) -> bool:
@@ -61,6 +64,15 @@ class CatWandConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             host = f"{host}:{discovery_info.port}"
         self._host = host
         self._name = txt.get("name") or "CatWandConnect"
+        # One line per announcement, so an owner who turns on debug logging can
+        # tell "never heard" (network) from "heard and skipped" (vistorx/CatWandConnect#175).
+        _LOGGER.debug(
+            "Robot %s announced at %s (api %s, firmware %s)",
+            txt.get("id"),
+            host,
+            txt.get("api"),
+            txt.get("version"),
+        )
 
         await self.async_set_unique_id(txt.get("id"))
         self._abort_if_unique_id_configured(updates={CONF_HOST: host})
