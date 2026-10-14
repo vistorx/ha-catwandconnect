@@ -39,17 +39,9 @@
     }
   },
   "entity": {
-    "sensor": {
-      "activity": {
-        "name": "Activity",
-        "state": {
-          "idle": "Idle",
-          "manual": "Manual control",
-          "stowing": "Stowing",
-          "calibrating": "Calibrating",
-          "tuning_speed": "Tuning speed",
-          "playing": "Playing"
-        }
+    "button": {
+      "stow": {
+        "name": "Stow"
       }
     },
     "number": {
@@ -64,12 +56,48 @@
       },
       "vertical_max_speed": {
         "name": "Vertical maximum speed"
+      },
+      "session_duration": {
+        "name": "Session duration"
+      }
+    },
+    "sensor": {
+      "activity": {
+        "name": "Activity",
+        "state": {
+          "idle": "Idle",
+          "manual": "Manual control",
+          "stowing": "Stowing",
+          "calibrating": "Calibrating",
+          "tuning_speed": "Tuning speed",
+          "playing": "Playing"
+        }
+      }
+    },
+    "switch": {
+      "play_session": {
+        "name": "Play session"
       }
     }
   },
   "exceptions": {
-    "read_only": {
-      "message": "Changing this value from Home Assistant isn't supported yet. Use the robot's interface."
+    "play_not_calibrated": {
+      "message": "The robot didn't start the Play session: it isn't calibrated yet. Run the Calibration from the robot's interface."
+    },
+    "play_busy": {
+      "message": "The robot didn't start the Play session: it is busy (stowing, calibrating or tuning a speed). Try again once it's done."
+    },
+    "command_refused": {
+      "message": "The robot refused the command ({error})."
+    },
+    "command_failed": {
+      "message": "Can't reach the robot. Check that it is on and on the same network."
+    },
+    "wrong_pin": {
+      "message": "The robot no longer accepts the stored Settings PIN."
+    },
+    "locked_out": {
+      "message": "Too many wrong PINs. Wait {retry_after} seconds, then try again."
     }
   }
 }

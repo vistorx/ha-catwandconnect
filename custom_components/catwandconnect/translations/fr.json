@@ -39,17 +39,9 @@
     }
   },
   "entity": {
-    "sensor": {
-      "activity": {
-        "name": "Activité",
-        "state": {
-          "idle": "Au repos",
-          "manual": "Pilotage manuel",
-          "stowing": "Rangement",
-          "calibrating": "Calibration",
-          "tuning_speed": "Réglage de vitesse",
-          "playing": "Session de jeu"
-        }
+    "button": {
+      "stow": {
+        "name": "Ranger"
       }
     },
     "number": {
@@ -64,12 +56,48 @@
       },
       "vertical_max_speed": {
         "name": "Vitesse maximale verticale"
+      },
+      "session_duration": {
+        "name": "Durée de session"
+      }
+    },
+    "sensor": {
+      "activity": {
+        "name": "Activité",
+        "state": {
+          "idle": "Au repos",
+          "manual": "Pilotage manuel",
+          "stowing": "Rangement",
+          "calibrating": "Calibration",
+          "tuning_speed": "Réglage de vitesse",
+          "playing": "Session de jeu"
+        }
+      }
+    },
+    "switch": {
+      "play_session": {
+        "name": "Session de jeu"
       }
     }
   },
   "exceptions": {
-    "read_only": {
-      "message": "Modifier cette valeur depuis Home Assistant n'est pas encore possible. Utilise l'interface du robot."
+    "play_not_calibrated": {
+      "message": "Le robot n'a pas démarré la session de jeu : il n'est pas encore calibré. Lance la Calibration depuis l'interface du robot."
+    },
+    "play_busy": {
+      "message": "Le robot n'a pas démarré la session de jeu : il est occupé (rangement, calibration ou réglage de vitesse). Réessaie quand il a fini."
+    },
+    "command_refused": {
+      "message": "Le robot a refusé la commande ({error})."
+    },
+    "command_failed": {
+      "message": "Impossible de joindre le robot. Vérifie qu'il est allumé et sur le même réseau."
+    },
+    "wrong_pin": {
+      "message": "Le code PIN des réglages enregistré n'est plus accepté par le robot."
+    },
+    "locked_out": {
+      "message": "Trop de codes PIN incorrects. Attends {retry_after} secondes, puis réessaie."
     }
   }
 }

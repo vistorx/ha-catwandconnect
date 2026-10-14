@@ -77,6 +77,12 @@ class RobotLive:
             update()
 
     @callback
+    def apply_settings(self, settings: RobotSettings) -> None:
+        """Show settings the robot just answered with (state messages lack them)."""
+        self.settings = settings
+        self._notify()
+
+    @callback
     def start(self) -> None:
         """Start connecting in the background."""
         self._task = self.entry.async_create_background_task(

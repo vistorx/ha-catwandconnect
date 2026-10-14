@@ -31,6 +31,18 @@ class WrongPin(RobotError):
     """The Settings PIN was refused."""
 
 
+class PinRequired(RobotError):
+    """A PIN-protected request was refused and no PIN is stored to unlock."""
+
+
+class Refused(RobotError):
+    """The robot refused a command; `code` is its error code."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
+
+
 class LockedOut(RobotError):
     """Too many wrong PINs: unlocking is refused for a while."""
 
@@ -66,6 +78,7 @@ class AxisSettings:
     min: float
     max: float
     max_speed: float
+    min_speed: float
 
 
 @dataclass(frozen=True)
@@ -139,9 +152,12 @@ class RobotSocket:
 class CatWandConnectClient:
     """Talks to one robot over HTTP."""
 
-    def __init__(self, session: aiohttp.ClientSession, host: str) -> None:
+    def __init__(
+        self, session: aiohttp.ClientSession, host: str, pin: str = ""
+    ) -> None:
         self._session = session
         self.host = host
+        self.pin = pin
         self.token: str | None = None
 
     @property
@@ -162,7 +178,7 @@ class CatWandConnectClient:
                 except ValueError:
                     body = None
                 return resp.status, body
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             raise CannotConnect(str(err)) from err
 
     async def _get_object(self, path: str) -> dict[str, Any]:
@@ -194,17 +210,20 @@ class CatWandConnectClient:
 
     async def settings(self) -> RobotSettings:
         """Read the Travel limits, maximum speeds and Session duration."""
-        body = await self._get_object("/api/settings")
+        return self._parse_settings(await self._get_object("/api/settings"))
+
+    @staticmethod
+    def _parse_settings(body: dict[str, Any]) -> RobotSettings:
         axes: dict[str, AxisSettings] = {}
         raw_axes = body.get("axes")
         for axis in AXES:
             raw = raw_axes.get(axis) if isinstance(raw_axes, dict) else None
             values = [
                 _number(raw.get(key)) if isinstance(raw, dict) else None
-                for key in ("min", "max", "maxSpeed")
+                for key in ("min", "max", "maxSpeed", "minSpeed")
             ]
             if None in values:
-                raise CannotConnect(f"GET /api/settings: no {axis} axis")
+                raise CannotConnect(f"settings: no {axis} axis")
             axes[axis] = AxisSettings(*values)  # type: ignore[arg-type]
         minutes = body.get("sessionMinutes")
         return RobotSettings(
@@ -218,7 +237,7 @@ class CatWandConnectClient:
         try:
             async with asyncio.timeout(TIMEOUT.total):
                 ws = await self._session.ws_connect(f"ws://{self.host}/ws", heartbeat=30)
-        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        except (TimeoutError, aiohttp.ClientError) as err:
             raise CannotConnect(str(err)) from err
         return RobotSocket(ws)
 
@@ -234,3 +253,49 @@ class CatWandConnectClient:
         if error == "locked_out":
             raise LockedOut(int(body.get("retryAfter") or 0))
         raise CannotConnect(f"unlock answered {status}")
+
+    async def _command(
+        self, method: str, path: str, json: Any = None
+    ) -> tuple[int, Any]:
+        """Send a command; on 401 pin_required, unlock with the PIN and retry once.
+
+        Raises `PinRequired` when no PIN is stored, `WrongPin` / `LockedOut`
+        when unlocking fails, and `Refused` for any other 4xx error code.
+        """
+        status, body = await self._request(method, path, json)
+        if status == 401 and _error_code(body) == "pin_required":
+            if not self.pin:
+                raise PinRequired
+            self.token = None
+            await self.unlock(self.pin)
+            status, body = await self._request(method, path, json)
+        if 200 <= status < 300:
+            return status, body
+        code = _error_code(body)
+        if code and 400 <= status < 500:
+            raise Refused(code)
+        raise CannotConnect(f"{method} {path} answered {status}")
+
+    async def play(self, action: str) -> None:
+        """Start (for the Session duration) or stop a Play session."""
+        await self._command("POST", "/api/play", {"action": action})
+
+    async def stow(self) -> None:
+        """Stow the wand."""
+        await self._command("POST", "/api/stow")
+
+    async def position(self, axis: str, degrees: float) -> None:
+        """Move one Axis to a position (Manual control)."""
+        await self._command("POST", "/api/position", {"axis": axis, "degrees": degrees})
+
+    async def update_settings(self, changes: dict[str, Any]) -> RobotSettings:
+        """Change some settings (PUT /api/settings); returns them all."""
+        _, body = await self._command("PUT", "/api/settings", changes)
+        if not isinstance(body, dict):
+            raise CannotConnect("PUT /api/settings answered no settings")
+        return self._parse_settings(body)
+
+
+def _error_code(body: Any) -> str | None:
+    code = body.get("error") if isinstance(body, dict) else None
+    return code if isinstance(code, str) else None
