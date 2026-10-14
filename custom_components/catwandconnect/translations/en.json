@@ -1,5 +1,6 @@
 {
   "config": {
+    "flow_title": "{name}",
     "step": {
       "user": {
         "title": "Add a CatWandConnect robot",
@@ -10,10 +11,31 @@
         "data_description": {
           "host": "For example catwandconnect.local or 192.168.1.20."
         }
+      },
+      "zeroconf_confirm": {
+        "title": "Add a CatWandConnect robot",
+        "description": "Add the robot **{name}** to Home Assistant?"
+      },
+      "pin": {
+        "title": "Settings PIN",
+        "description": "**{name}** has a Settings PIN. Enter it so Home Assistant can change the robot's settings.",
+        "data": {
+          "pin": "Settings PIN"
+        },
+        "data_description": {
+          "pin": "The PIN set in the robot's Settings, 4 to 8 digits."
+        }
       }
     },
+    "error": {
+      "cannot_connect": "Can't reach the robot. Check the address and that the robot is on the same network.",
+      "wrong_pin": "Wrong PIN. Try again.",
+      "locked_out": "Too many wrong PINs. Wait {retry_after} seconds, then try again."
+    },
     "abort": {
-      "not_implemented": "Adding a robot is not available yet in this version of the integration."
+      "already_configured": "This robot is already added. Its address has been updated.",
+      "cannot_connect": "Can't reach the robot. Check that it is on and on the same network, then try again.",
+      "firmware_too_old": "This robot's firmware is too old for the integration. Update the robot to version {min_firmware} or later ([how to update]({update_url})), then add it again."
     }
   }
 }
