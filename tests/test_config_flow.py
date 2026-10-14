@@ -270,3 +270,76 @@ async def test_robot_gone_during_pin_step(hass: HomeAssistant, robot: FakeRobot)
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "pin"
     assert result["errors"] == {"base": "cannot_connect"}
+
+
+# ---------------------------------------------------------------- reauth
+
+
+def _entry(robot: FakeRobot, pin: str) -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=robot.device_id,
+        data={CONF_HOST: robot.host, CONF_PIN: pin},
+        title=robot.name,
+    )
+    return entry
+
+
+@pytest.mark.parametrize("robot_config", [{"pin": "1357"}])
+async def test_reauth_stores_the_new_pin(hass: HomeAssistant, robot: FakeRobot) -> None:
+    entry = _entry(robot, "2468")
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["description_placeholders"] == {"name": "CatWandConnect"}
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PIN: "1357"}
+    )
+    await hass.async_block_till_done()
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert entry.data == {CONF_HOST: robot.host, CONF_PIN: "1357"}
+
+
+@pytest.mark.parametrize("robot_config", [{"pin": "1357"}])
+async def test_reauth_wrong_pin_asks_again(hass: HomeAssistant, robot: FakeRobot) -> None:
+    entry = _entry(robot, "2468")
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PIN: "2468"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reauth_confirm"
+    assert result["errors"] == {"base": "wrong_pin"}
+    assert entry.data[CONF_PIN] == "2468"
+
+
+@pytest.mark.parametrize("robot_config", [{"pin": "1357", "locked_for": 60}])
+async def test_reauth_locked_out_says_how_long_to_wait(
+    hass: HomeAssistant, robot: FakeRobot
+) -> None:
+    entry = _entry(robot, "2468")
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PIN: "1357"}
+    )
+    assert result["errors"] == {"base": "locked_out"}
+    assert result["description_placeholders"]["retry_after"] == "60"
+
+
+@pytest.mark.parametrize("robot_config", [{"pin": "1357"}])
+async def test_reauth_unreachable_robot_shows_cannot_connect(
+    hass: HomeAssistant, robot: FakeRobot
+) -> None:
+    entry = _entry(robot, "2468")
+    entry.add_to_hass(hass)
+    result = await entry.start_reauth_flow(hass)
+    await robot.go_offline()
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_PIN: "1357"}
+    )
+    assert result["errors"] == {"base": "cannot_connect"}

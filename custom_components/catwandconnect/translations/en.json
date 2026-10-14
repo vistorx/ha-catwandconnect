@@ -25,6 +25,16 @@
         "data_description": {
           "pin": "The PIN set in the robot's Settings, 4 to 8 digits."
         }
+      },
+      "reauth_confirm": {
+        "title": "New Settings PIN",
+        "description": "**{name}** no longer accepts the stored Settings PIN. Enter its new PIN so Home Assistant can change the robot's settings again.",
+        "data": {
+          "pin": "Settings PIN"
+        },
+        "data_description": {
+          "pin": "The PIN set in the robot's Settings, 4 to 8 digits."
+        }
       }
     },
     "error": {
@@ -35,7 +45,8 @@
     "abort": {
       "already_configured": "This robot is already added. Its address has been updated.",
       "cannot_connect": "Can't reach the robot. Check that it is on and on the same network, then try again.",
-      "firmware_too_old": "This robot's firmware is too old for the integration. Update the robot to version {min_firmware} or later ([how to update]({update_url})), then add it again."
+      "firmware_too_old": "This robot's firmware is too old for the integration. Update the robot to version {min_firmware} or later ([how to update]({update_url})), then add it again.",
+      "reauth_successful": "The Settings PIN has been updated."
     }
   },
   "entity": {
