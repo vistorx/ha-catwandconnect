@@ -31,6 +31,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 
+from custom_components.catwandconnect.const import DOMAIN
+
 from .common import (
     ACTIVITY,
     H_POSITION,
@@ -278,3 +280,21 @@ async def test_locked_out_raises_with_the_wait(
         await _set(hass, V_MAX_SPEED, 200)
     assert err.value.translation_key == "locked_out"
     assert err.value.translation_placeholders == {"retry_after": "120"}
+
+
+@pytest.mark.parametrize(
+    ("robot_config", "stored_pin"), [({"pin": PIN}, "1111"), ({"pin": PIN}, "")]
+)
+async def test_refused_stored_pin_starts_reauth(
+    hass: HomeAssistant, robot: FakeRobot, stored_pin: str
+) -> None:
+    entry = await set_up(hass, robot, pin=stored_pin)
+    with pytest.raises(ConfigEntryAuthFailed):
+        await _set(hass, V_MAX_SPEED, 200)
+    await hass.async_block_till_done()
+
+    flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert len(flows) == 1
+    assert flows[0]["context"]["source"] == "reauth"
+    assert flows[0]["context"]["entry_id"] == entry.entry_id
+    assert flows[0]["step_id"] == "reauth_confirm"

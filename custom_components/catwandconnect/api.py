@@ -187,6 +187,10 @@ class CatWandConnectClient:
             raise CannotConnect(f"GET {path} answered {status}")
         return body
 
+    async def raw(self, path: str) -> dict[str, Any]:
+        """Read a GET endpoint as the robot sends it (for diagnostics)."""
+        return await self._get_object(path)
+
     async def info(self) -> RobotInfo:
         """Read the robot's identity and API version."""
         body = await self._get_object("/api/info")

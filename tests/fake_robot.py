@@ -51,6 +51,11 @@ class FakeRobot:
     chip: str = "ESP32-D0WD-V3"
     api: int | None = 1
     device_id: str = "3f9a1c2b7d4e6f80"
+    mac: str = "24:6F:28:00:00:01"
+    ssid: str = "Home"
+    ip: str = "192.168.1.20"
+    # Fields a later firmware may add to /api/info.
+    extra_info: dict[str, Any] = field(default_factory=dict)
     pin: str | None = None
     calibrated: bool = True
     activity: str = "idle"
@@ -252,6 +257,12 @@ class FakeRobot:
             "version": self.version,
             "chip": self.chip,
             "id": self.device_id,
+            "mac": self.mac,
+            "ssid": self.ssid,
+            "ip": self.ip,
+            "rssi": -61,
+            "uptime": 3600,
+            **self.extra_info,
         }
         if self.api is not None:
             info["api"] = self.api
