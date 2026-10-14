@@ -26,3 +26,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
+          # Issues are off on purpose: support lives in vistorx/CatWandConnect
+          # (its ADR 0010), which the manifest's issue_tracker points to.
+          ignore: issues
