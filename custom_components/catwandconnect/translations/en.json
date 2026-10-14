@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add a CatWandConnect robot",
+        "description": "Enter the robot's IP address or .local name.",
+        "data": {
+          "host": "Host"
+        },
+        "data_description": {
+          "host": "For example catwandconnect.local or 192.168.1.20."
+        }
+      }
+    },
+    "abort": {
+      "not_implemented": "Adding a robot is not available yet in this version of the integration."
+    }
+  }
+}
