@@ -36,6 +36,8 @@ async def async_setup_entry(
 class ActivitySensor(CatWandConnectEntity, SensorEntity):
     """The robot's activity, as pushed on /ws."""
 
+    _platform_domain = "sensor"
+
     @property
     def native_value(self) -> str | None:
         """The activity; unknown for one this integration doesn't know."""

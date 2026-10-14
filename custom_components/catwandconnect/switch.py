@@ -37,6 +37,8 @@ async def async_setup_entry(
 class PlaySessionSwitch(CatWandConnectEntity, SwitchEntity):
     """Starts and stops a Play session; on while the activity is playing."""
 
+    _platform_domain = "switch"
+
     @property
     def is_on(self) -> bool | None:
         """On during a Play session."""

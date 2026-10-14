@@ -4,7 +4,18 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## Unreleased
 
+## 0.1.1 - 2026-10-14
+
+**Move the wand with your finger, right from Home Assistant.** The new joystick card works like the robot's own page: hold and drag, the wand follows; let go, it stops.
+
+### Highlights
+
 - **Joystick card.** Add *CatWandConnect joystick* to a dashboard and move the wand with your finger, like on the robot's own page: it follows while you hold, and stops when you let go or close the app. It shows the Activity and positions, and greys out while the robot is offline. See [Joystick card](https://github.com/vistorx/ha-catwandconnect#joystick-card).
+- **The ready-made dashboards work in every language.** Entity ids are now always in English (`switch.catwandconnect_play_session`), as in the guide, even when Home Assistant is in French; names stay translated.
+
+### Update
+
+In HACS, open CatWandConnect → **Update**, restart Home Assistant, then reload the page (pull down in the app) so the joystick card appears in the card picker. A robot added with 0.1.0 in another language than English keeps its entity ids: to get the English ones, remove the robot from **Settings → Devices & services → CatWandConnect** and add it again, or rename the ids on each entity's settings.
 
 ## 0.1.0 - 2026-10-14
 
