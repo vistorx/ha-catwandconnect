@@ -37,5 +37,39 @@
       "cannot_connect": "Impossible de joindre le robot. Vérifie qu'il est allumé et sur le même réseau, puis réessaie.",
       "firmware_too_old": "Le firmware de ce robot est trop ancien pour l'intégration. Mets le robot à jour en version {min_firmware} ou plus récente ([comment le mettre à jour]({update_url})), puis ajoute-le à nouveau."
     }
+  },
+  "entity": {
+    "sensor": {
+      "activity": {
+        "name": "Activité",
+        "state": {
+          "idle": "Au repos",
+          "manual": "Pilotage manuel",
+          "stowing": "Rangement",
+          "calibrating": "Calibration",
+          "tuning_speed": "Réglage de vitesse",
+          "playing": "Session de jeu"
+        }
+      }
+    },
+    "number": {
+      "horizontal_position": {
+        "name": "Position horizontale"
+      },
+      "vertical_position": {
+        "name": "Position verticale"
+      },
+      "horizontal_max_speed": {
+        "name": "Vitesse maximale horizontale"
+      },
+      "vertical_max_speed": {
+        "name": "Vitesse maximale verticale"
+      }
+    }
+  },
+  "exceptions": {
+    "read_only": {
+      "message": "Modifier cette valeur depuis Home Assistant n'est pas encore possible. Utilise l'interface du robot."
+    }
   }
 }
