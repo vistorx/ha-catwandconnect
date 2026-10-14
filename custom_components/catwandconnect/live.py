@@ -13,12 +13,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 
 from .api import (
+    CannotConnect,
     CatWandConnectClient,
     RobotError,
     RobotSettings,
@@ -98,6 +100,22 @@ class RobotLive:
             except asyncio.CancelledError:
                 pass
             self._task = None
+
+    async def async_move(self, h: float, v: float) -> None:
+        """Manual control: move at fractions `h`, `v` of the maximum speed.
+
+        The robot stops by itself unless another move follows within 500 ms.
+        """
+        await self._send({"t": "move", "h": h, "v": v})
+
+    async def async_stop(self) -> None:
+        """End Manual control: the wand decelerates and stops."""
+        await self._send({"t": "stop"})
+
+    async def _send(self, frame: dict[str, Any]) -> None:
+        if self._socket is None:
+            raise CannotConnect("not connected")
+        await self._socket.send(frame)
 
     async def _run(self) -> None:
         attempt = 0

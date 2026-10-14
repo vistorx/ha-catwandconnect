@@ -9,9 +9,11 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import CannotConnect, CatWandConnectClient
 from .const import (
@@ -23,7 +25,11 @@ from .const import (
     MODEL,
     UPDATE_URL,
 )
+from .card import async_register_card
 from .live import RobotLive
+from .websocket import async_register as async_register_websocket
+
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
@@ -33,6 +39,13 @@ PLATFORMS: list[Platform] = [
 ]
 
 type CatWandConnectConfigEntry = ConfigEntry[RobotLive]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up what all robots share: the joystick card and its commands."""
+    async_register_websocket(hass)
+    await async_register_card(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CatWandConnectConfigEntry) -> bool:

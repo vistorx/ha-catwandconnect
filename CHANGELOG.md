@@ -4,6 +4,8 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## Unreleased
 
+- **Joystick card.** Add *CatWandConnect joystick* to a dashboard and move the wand with your finger, like on the robot's own page: it follows while you hold, and stops when you let go or close the app. It shows the Activity and positions, and greys out while the robot is offline. See [Joystick card](https://github.com/vistorx/ha-catwandconnect#joystick-card).
+
 ## 0.1.0 - 2026-10-14
 
 **Your robot in Home Assistant, without MQTT.** The integration finds CatWandConnect on your network by itself: click **Add**, and the Play session, Stow, positions and speeds are on your dashboard, updated live within a second.
