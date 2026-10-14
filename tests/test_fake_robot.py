@@ -29,6 +29,11 @@ async def test_info_reports_identity_and_api_version(robot: FakeRobot, session) 
         "chip": "ESP32-D0WD-V3",
         "api": 1,
         "id": "3f9a1c2b7d4e6f80",
+        "mac": "24:6F:28:00:00:01",
+        "ssid": "Home",
+        "ip": "192.168.1.20",
+        "rssi": -61,
+        "uptime": 3600,
     }
 
 
