@@ -114,6 +114,13 @@ class RobotSocket:
     def __init__(self, ws: aiohttp.ClientWebSocketResponse) -> None:
         self._ws = ws
 
+    async def send(self, frame: dict[str, Any]) -> None:
+        """Send one message to the robot."""
+        try:
+            await self._ws.send_json(frame)
+        except (ConnectionError, aiohttp.ClientError) as err:
+            raise CannotConnect(str(err)) from err
+
     async def close(self) -> None:
         """Close the connection."""
         await self._ws.close()
