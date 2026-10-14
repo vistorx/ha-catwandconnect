@@ -7,12 +7,16 @@ The only module that knows the robot's URLs and JSON shapes
 from __future__ import annotations
 
 import asyncio
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
 
 TIMEOUT = aiohttp.ClientTimeout(total=10)
+
+AXES = ("horizontal", "vertical")
+ACTIVITIES = ("idle", "manual", "stowing", "calibrating", "tuning_speed", "playing")
 
 
 class RobotError(Exception):
@@ -53,6 +57,83 @@ class AuthState:
     enabled: bool
     authorized: bool
     locked_for: int
+
+
+@dataclass(frozen=True)
+class AxisSettings:
+    """The settings of one Axis the integration shows."""
+
+    min: float
+    max: float
+    max_speed: float
+
+
+@dataclass(frozen=True)
+class RobotSettings:
+    """What GET /api/settings says, as far as the integration uses it."""
+
+    calibrated: bool
+    axes: dict[str, AxisSettings]
+    session_minutes: int
+
+
+@dataclass(frozen=True)
+class RobotState:
+    """One state message pushed on /ws."""
+
+    h: float | None
+    v: float | None
+    activity: str | None
+    calibrated: bool
+    session_minutes: int | None
+    name: str | None
+
+
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
+class RobotSocket:
+    """An open /ws connection: iterate it to receive the robot's states."""
+
+    def __init__(self, ws: aiohttp.ClientWebSocketResponse) -> None:
+        self._ws = ws
+
+    async def close(self) -> None:
+        """Close the connection."""
+        await self._ws.close()
+        # aiohttp re-arms the heartbeat timer when a frame arrives while
+        # closing; drop it so no timer outlives the connection.
+        cancel_heartbeat = getattr(self._ws, "_cancel_heartbeat", None)
+        if cancel_heartbeat is not None:
+            cancel_heartbeat()
+
+    async def __aiter__(self) -> AsyncIterator[RobotState]:
+        """Yield each state message until the robot closes the connection."""
+        async for msg in self._ws:
+            if msg.type is aiohttp.WSMsgType.ERROR:
+                raise CannotConnect(str(self._ws.exception()))
+            if msg.type is not aiohttp.WSMsgType.TEXT:
+                continue
+            try:
+                data = msg.json()
+            except ValueError:
+                continue
+            if not isinstance(data, dict) or data.get("t") != "state":
+                continue
+            activity = data.get("activity")
+            name = data.get("name")
+            minutes = data.get("sessionMinutes")
+            yield RobotState(
+                h=_number(data.get("h")),
+                v=_number(data.get("v")),
+                activity=activity if isinstance(activity, str) else None,
+                calibrated=bool(data.get("calibrated")),
+                session_minutes=minutes if isinstance(minutes, int) else None,
+                name=name if isinstance(name, str) and name else None,
+            )
 
 
 class CatWandConnectClient:
@@ -110,6 +191,36 @@ class CatWandConnectClient:
             authorized=bool(body.get("authorized")),
             locked_for=int(body.get("lockedFor") or 0),
         )
+
+    async def settings(self) -> RobotSettings:
+        """Read the Travel limits, maximum speeds and Session duration."""
+        body = await self._get_object("/api/settings")
+        axes: dict[str, AxisSettings] = {}
+        raw_axes = body.get("axes")
+        for axis in AXES:
+            raw = raw_axes.get(axis) if isinstance(raw_axes, dict) else None
+            values = [
+                _number(raw.get(key)) if isinstance(raw, dict) else None
+                for key in ("min", "max", "maxSpeed")
+            ]
+            if None in values:
+                raise CannotConnect(f"GET /api/settings: no {axis} axis")
+            axes[axis] = AxisSettings(*values)  # type: ignore[arg-type]
+        minutes = body.get("sessionMinutes")
+        return RobotSettings(
+            calibrated=bool(body.get("calibrated")),
+            axes=axes,
+            session_minutes=minutes if isinstance(minutes, int) else 0,
+        )
+
+    async def socket(self) -> RobotSocket:
+        """Open the /ws connection the robot pushes its state on."""
+        try:
+            async with asyncio.timeout(TIMEOUT.total):
+                ws = await self._session.ws_connect(f"ws://{self.host}/ws", heartbeat=30)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+            raise CannotConnect(str(err)) from err
+        return RobotSocket(ws)
 
     async def unlock(self, pin: str) -> str:
         """Unlock with the Settings PIN; keeps and returns the session token."""

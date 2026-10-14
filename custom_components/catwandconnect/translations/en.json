@@ -37,5 +37,39 @@
       "cannot_connect": "Can't reach the robot. Check that it is on and on the same network, then try again.",
       "firmware_too_old": "This robot's firmware is too old for the integration. Update the robot to version {min_firmware} or later ([how to update]({update_url})), then add it again."
     }
+  },
+  "entity": {
+    "sensor": {
+      "activity": {
+        "name": "Activity",
+        "state": {
+          "idle": "Idle",
+          "manual": "Manual control",
+          "stowing": "Stowing",
+          "calibrating": "Calibrating",
+          "tuning_speed": "Tuning speed",
+          "playing": "Playing"
+        }
+      }
+    },
+    "number": {
+      "horizontal_position": {
+        "name": "Horizontal position"
+      },
+      "vertical_position": {
+        "name": "Vertical position"
+      },
+      "horizontal_max_speed": {
+        "name": "Horizontal maximum speed"
+      },
+      "vertical_max_speed": {
+        "name": "Vertical maximum speed"
+      }
+    }
+  },
+  "exceptions": {
+    "read_only": {
+      "message": "Changing this value from Home Assistant isn't supported yet. Use the robot's interface."
+    }
   }
 }
