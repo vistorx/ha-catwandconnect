@@ -67,6 +67,8 @@ class FakeRobot:
     failed_unlocks: int = 0
     locked_for: int = 0
     requests: list[tuple[str, str]] = field(default_factory=list)
+    # Every non-GET request: (method, path, JSON body or None, sent a valid token).
+    commands: list[tuple[str, str, Any, bool]] = field(default_factory=list)
     _clients: set[web.WebSocketResponse] = field(default_factory=set)
     _server: TestServer | None = None
 
@@ -188,6 +190,11 @@ class FakeRobot:
     @web.middleware
     async def _log_middleware(self, request: web.Request, handler):
         self.requests.append((request.method, request.path))
+        if request.method != "GET":
+            body = await self._json_any(request)
+            self.commands.append(
+                (request.method, request.path, body, self._authorized(request))
+            )
         if self.offline:
             return self._error(503, "offline")
         return await handler(request)
@@ -202,6 +209,15 @@ class FakeRobot:
     @staticmethod
     def _error(status: int, code: str, **extra: Any) -> web.Response:
         return web.json_response({"error": code, **extra}, status=status)
+
+    @staticmethod
+    async def _json_any(request: web.Request) -> Any:
+        if not request.can_read_body:
+            return None
+        try:
+            return await request.json()
+        except ValueError:
+            return None
 
     @staticmethod
     async def _json(request: web.Request) -> dict[str, Any] | None:
@@ -304,7 +320,7 @@ class FakeRobot:
         self.activity = "stowing"
         self.play_remaining = 0
         await self.push_state()
-        return web.Response(status=202)
+        return web.json_response({}, status=202)
 
     async def _position(self, request: web.Request) -> web.Response:
         body = await self._json(request)
@@ -320,7 +336,7 @@ class FakeRobot:
         ):
             return self._error(400, "invalid_request")
         if self.activity == "stowing":
-            return web.json_response({"ok": True})
+            return web.json_response({}, status=202)
         limits = self.axes[axis] if self.calibrated else {"min": 60, "max": 120}
         clamped = max(limits["min"], min(limits["max"], float(degrees)))
         if axis == "horizontal":
@@ -330,7 +346,7 @@ class FakeRobot:
         self.activity = "manual"
         self.play_remaining = 0
         await self.push_state()
-        return web.json_response({"ok": True})
+        return web.json_response({}, status=202)
 
     async def _get_settings(self, request: web.Request) -> web.Response:
         return web.json_response(self._settings())
@@ -345,17 +361,22 @@ class FakeRobot:
             minutes = body["sessionMinutes"]
             if not isinstance(minutes, int) or not 1 <= minutes <= 60:
                 return self._error(400, "session_duration_out_of_range")
+        # Validated as a whole, like the firmware: nothing changes on an error.
+        axes = {axis: dict(values) for axis, values in self.axes.items()}
+        for axis, values in body.get("axes", {}).items():
+            if axis in AXES and isinstance(values, dict):
+                axes[axis].update(values)
         for axis in AXES:
-            speed = body.get("axes", {}).get(axis, {}).get("maxSpeed")
-            if speed is not None and not 10 <= speed <= 360:
+            speed, min_speed = axes[axis]["maxSpeed"], axes[axis]["minSpeed"]
+            if not 10 <= speed <= 360:
                 return self._error(400, "speed_out_of_range", axis=axis)
+            if not 1 <= min_speed < speed:
+                return self._error(400, "min_speed_out_of_range", axis=axis)
         if "sessionMinutes" in body:
             self.session_minutes = body["sessionMinutes"]
         if "playSpeed" in body:
             self.play_speed = body["playSpeed"]
-        for axis, values in body.get("axes", {}).items():
-            if axis in AXES:
-                self.axes[axis].update(values)
+        self.axes = axes
         await self.push_state()
         return web.json_response(self._settings())
 

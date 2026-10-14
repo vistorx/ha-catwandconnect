@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
+from typing import TypeVar
+
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityDescription
 
+from .api import LockedOut, PinRequired, Refused, RobotError, WrongPin
 from .const import DOMAIN
 from .live import RobotLive
+
+_T = TypeVar("_T")
 
 
 class CatWandConnectEntity(Entity):
@@ -29,3 +36,35 @@ class CatWandConnectEntity(Entity):
     async def async_added_to_hass(self) -> None:
         """Follow the robot's state."""
         self.async_on_remove(self.live.async_add_listener(self.async_write_ha_state))
+
+    async def _command(self, command: Awaitable[_T]) -> _T:
+        """Send a command to the robot, turning its errors into HA errors.
+
+        The new state isn't guessed: the robot pushes it on /ws.
+        """
+        try:
+            return await command
+        except RobotError as err:
+            raise command_error(err) from err
+
+
+def command_error(err: RobotError) -> HomeAssistantError:
+    """The Home Assistant error shown for a command the robot didn't take."""
+    if isinstance(err, (WrongPin, PinRequired)):
+        # The stored PIN no longer unlocks the robot: reauthentication.
+        return ConfigEntryAuthFailed(
+            translation_domain=DOMAIN, translation_key="wrong_pin"
+        )
+    if isinstance(err, LockedOut):
+        return HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="locked_out",
+            translation_placeholders={"retry_after": str(err.retry_after)},
+        )
+    if isinstance(err, Refused):
+        return HomeAssistantError(
+            translation_domain=DOMAIN,
+            translation_key="command_refused",
+            translation_placeholders={"error": err.code},
+        )
+    return HomeAssistantError(translation_domain=DOMAIN, translation_key="command_failed")

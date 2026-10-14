@@ -131,7 +131,7 @@ async def test_stow_accepted(robot: FakeRobot, session) -> None:
 async def test_position_clamped_into_travel_limits(robot: FakeRobot, session) -> None:
     body = {"axis": "horizontal", "degrees": 170}
     async with session.post(f"{robot.url}/api/position", json=body) as resp:
-        assert resp.status == 200
+        assert resp.status == 202
     assert robot.h == 120
     assert robot.activity == "manual"
     async with session.post(f"{robot.url}/api/position", json={"axis": "up", "degrees": 1}) as resp:
@@ -163,3 +163,40 @@ async def test_disconnect_closes_ws(robot: FakeRobot, session) -> None:
         msg = await ws.receive(timeout=2)
         assert msg.type in (aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSED)
     assert robot.ws_clients == 0
+
+
+async def test_settings_are_validated_as_a_whole(robot: FakeRobot, session) -> None:
+    # A maximum speed at or below the minimum is refused and nothing changes.
+    robot.axes["vertical"]["minSpeed"] = 50
+    body = {"sessionMinutes": 20, "axes": {"vertical": {"maxSpeed": 40}}}
+    async with session.put(f"{robot.url}/api/settings", json=body) as resp:
+        assert resp.status == 400
+        assert await resp.json() == {"error": "min_speed_out_of_range", "axis": "vertical"}
+    assert robot.axes["vertical"]["maxSpeed"] == 90
+    assert robot.session_minutes == 10
+
+    body = {"axes": {"horizontal": {"maxSpeed": 400}}}
+    async with session.put(f"{robot.url}/api/settings", json=body) as resp:
+        assert resp.status == 400
+        assert await resp.json() == {"error": "speed_out_of_range", "axis": "horizontal"}
+
+
+@pytest.mark.parametrize("robot_config", [{"pin": "2468"}])
+async def test_commands_are_recorded_with_their_body_and_token(
+    robot: FakeRobot, session
+) -> None:
+    await session.post(f"{robot.url}/api/play", json={"action": "start"})
+    async with session.post(f"{robot.url}/api/auth/unlock", json={"pin": "2468"}) as resp:
+        token = (await resp.json())["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    body = {"axes": {"horizontal": {"maxSpeed": 120}}}
+    await session.put(f"{robot.url}/api/settings", json=body, headers=headers)
+    await session.post(f"{robot.url}/api/stow")
+    await session.get(f"{robot.url}/api/settings")
+
+    assert robot.commands == [
+        ("POST", "/api/play", {"action": "start"}, False),
+        ("POST", "/api/auth/unlock", {"pin": "2468"}, False),
+        ("PUT", "/api/settings", body, True),
+        ("POST", "/api/stow", None, False),
+    ]

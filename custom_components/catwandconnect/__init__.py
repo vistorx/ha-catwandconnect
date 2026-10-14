@@ -13,17 +13,26 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import CannotConnect, CatWandConnectClient
-from .const import DOMAIN, MANUFACTURER, MODEL
+from .const import CONF_PIN, DOMAIN, MANUFACTURER, MODEL
 from .live import RobotLive
 
-PLATFORMS: list[Platform] = [Platform.NUMBER, Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.BUTTON,
+    Platform.NUMBER,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 type CatWandConnectConfigEntry = ConfigEntry[RobotLive]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: CatWandConnectConfigEntry) -> bool:
     """Set up a robot from a config entry."""
-    client = CatWandConnectClient(async_get_clientsession(hass), entry.data[CONF_HOST])
+    client = CatWandConnectClient(
+        async_get_clientsession(hass),
+        entry.data[CONF_HOST],
+        entry.data.get(CONF_PIN, ""),
+    )
     try:
         info = await client.info()
     except CannotConnect as err:

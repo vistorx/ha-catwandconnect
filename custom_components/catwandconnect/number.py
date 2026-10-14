@@ -1,8 +1,8 @@
-"""Position and maximum speed numbers of each Axis."""
+"""Position and maximum speed of each Axis, and the Session duration."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from homeassistant.components.number import (
@@ -10,15 +10,14 @@ from homeassistant.components.number import (
     NumberEntityDescription,
     NumberMode,
 )
-from homeassistant.const import DEGREE
+from homeassistant.const import DEGREE, UnitOfTime
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import CatWandConnectConfigEntry
 from .api import AXES, AxisSettings, RobotState
-from .const import DOMAIN
 from .entity import CatWandConnectEntity
+from .live import RobotLive
 
 PARALLEL_UPDATES = 0
 
@@ -26,6 +25,8 @@ PARALLEL_UPDATES = 0
 UNCALIBRATED_MIN = 60
 UNCALIBRATED_MAX = 120
 SPEED_UNIT = f"{DEGREE}/s"
+# The lowest minimum speed the robot accepts, in °/s.
+SLOWEST_SPEED = 1
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -34,6 +35,7 @@ class AxisNumberDescription(NumberEntityDescription):
 
     axis: str
     value_fn: Callable[[RobotState, AxisSettings], float | None]
+    set_fn: Callable[[RobotLive, str, float], Awaitable[None]]
     # Bounds from the axis settings, or None for the fixed native_min/max_value.
     bounds_fn: Callable[[bool, AxisSettings], tuple[float, float]] | None = None
 
@@ -52,6 +54,21 @@ def _vertical(state: RobotState, _: AxisSettings) -> float | None:
     return state.v
 
 
+async def _set_position(live: RobotLive, axis: str, degrees: float) -> None:
+    await live.client.position(axis, degrees)
+
+
+async def _set_max_speed(live: RobotLive, axis: str, speed: float) -> None:
+    changes: dict[str, float] = {"maxSpeed": speed}
+    # Home Assistant knows only the maximum: like over MQTT, a maximum at or
+    # below the minimum takes the minimum down to a tenth of it rather than
+    # being refused (the robot validates the settings as a whole).
+    current = live.settings.axes[axis] if live.settings else None
+    if current is not None and current.min_speed >= speed:
+        changes["minSpeed"] = max(SLOWEST_SPEED, speed / 10)
+    live.apply_settings(await live.client.update_settings({"axes": {axis: changes}}))
+
+
 def _descriptions(axis: str) -> list[AxisNumberDescription]:
     return [
         AxisNumberDescription(
@@ -62,6 +79,7 @@ def _descriptions(axis: str) -> list[AxisNumberDescription]:
             native_step=1,
             mode=NumberMode.SLIDER,
             value_fn=_horizontal if axis == "horizontal" else _vertical,
+            set_fn=_set_position,
             bounds_fn=_travel,
         ),
         AxisNumberDescription(
@@ -74,6 +92,7 @@ def _descriptions(axis: str) -> list[AxisNumberDescription]:
             native_step=5,
             mode=NumberMode.BOX,
             value_fn=lambda _, settings: settings.max_speed,
+            set_fn=_set_max_speed,
         ),
     ]
 
@@ -82,20 +101,34 @@ NUMBERS: tuple[AxisNumberDescription, ...] = tuple(
     description for axis in AXES for description in _descriptions(axis)
 )
 
+SESSION_DURATION = NumberEntityDescription(
+    key="session_duration",
+    translation_key="session_duration",
+    native_unit_of_measurement=UnitOfTime.MINUTES,
+    native_min_value=1,
+    native_max_value=60,
+    native_step=1,
+    mode=NumberMode.BOX,
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CatWandConnectConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Add the position and maximum speed numbers."""
+    """Add the position, maximum speed and Session duration numbers."""
+    live = entry.runtime_data
     async_add_entities(
-        AxisNumber(entry.runtime_data, description) for description in NUMBERS
+        [
+            *(AxisNumber(live, description) for description in NUMBERS),
+            SessionDurationNumber(live, SESSION_DURATION),
+        ]
     )
 
 
 class AxisNumber(CatWandConnectEntity, NumberEntity):
-    """A number showing one Axis's position or maximum speed."""
+    """One Axis's position or maximum speed."""
 
     entity_description: AxisNumberDescription
 
@@ -133,7 +166,24 @@ class AxisNumber(CatWandConnectEntity, NumberEntity):
         return bounds[1] if bounds else super().native_max_value
 
     async def async_set_native_value(self, value: float) -> None:
-        """Changing these values from Home Assistant isn't supported yet."""
-        raise HomeAssistantError(
-            translation_domain=DOMAIN, translation_key="read_only"
+        """Move the axis, or change its maximum speed."""
+        description = self.entity_description
+        await self._command(description.set_fn(self.live, description.axis, value))
+
+
+class SessionDurationNumber(CatWandConnectEntity, NumberEntity):
+    """How long a Play session lasts, in minutes."""
+
+    @property
+    def native_value(self) -> float | None:
+        """The Session duration pushed on /ws, else the one last read."""
+        state, settings = self.live.state, self.live.settings
+        if state is not None and state.session_minutes is not None:
+            return state.session_minutes
+        return settings.session_minutes if settings else None
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Change the Session duration (no PIN needed)."""
+        await self._command(
+            self.live.client.update_settings({"sessionMinutes": round(value)})
         )
