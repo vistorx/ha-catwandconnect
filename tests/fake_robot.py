@@ -61,6 +61,8 @@ class FakeRobot:
     play_remaining: int = 0
     axes: dict[str, dict[str, float]] = field(default_factory=_default_axes)
 
+    offline: bool = False
+    ws_connections: int = 0
     tokens: set[str] = field(default_factory=set)
     failed_unlocks: int = 0
     locked_for: int = 0
@@ -113,6 +115,15 @@ class FakeRobot:
             await ws.close()
         self._clients.clear()
 
+    async def go_offline(self) -> None:
+        """Leave the network: drop the sockets and refuse every request."""
+        self.offline = True
+        await self.disconnect()
+
+    def go_online(self) -> None:
+        """Come back: answer requests and accept sockets again."""
+        self.offline = False
+
     # ------------------------------------------------------------------ state
 
     def state(self) -> dict[str, Any]:
@@ -149,11 +160,36 @@ class FakeRobot:
             self.play_remaining = 0
         await self.push_state()
 
+    async def move(self, h: float | None = None, v: float | None = None) -> None:
+        """Move the wand from outside (joystick) and push the state."""
+        if h is not None:
+            self.h = h
+        if v is not None:
+            self.v = v
+        self.activity = "manual"
+        self.play_remaining = 0
+        await self.push_state()
+
+    async def rename(self, name: str) -> None:
+        """Rename the robot from its Device interface and push the state."""
+        self.name = name
+        await self.push_state()
+
+    async def send_raw(self, data: str | bytes) -> None:
+        """Send any frame to every WebSocket client (other message types)."""
+        for ws in list(self._clients):
+            if isinstance(data, bytes):
+                await ws.send_bytes(data)
+            else:
+                await ws.send_str(data)
+
     # ------------------------------------------------------------------ helpers
 
     @web.middleware
     async def _log_middleware(self, request: web.Request, handler):
         self.requests.append((request.method, request.path))
+        if self.offline:
+            return self._error(503, "offline")
         return await handler(request)
 
     def _authorized(self, request: web.Request) -> bool:
@@ -327,6 +363,7 @@ class FakeRobot:
         ws = web.WebSocketResponse()
         await ws.prepare(request)
         self._clients.add(ws)
+        self.ws_connections += 1
         try:
             await ws.send_json(self.state())
             async for msg in ws:
