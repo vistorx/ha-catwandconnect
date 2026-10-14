@@ -37,10 +37,10 @@ Pull requests are welcome here. For anything beyond a small fix, open an issue i
 
 ## Development
 
-The integration lives in `custom_components/catwandconnect/`. Its tests run against a fake robot (`tests/fake_robot.py`), a local server speaking the documented API, so no hardware is needed. With [uv](https://docs.astral.sh/uv/) and Python 3.13:
+The integration lives in `custom_components/catwandconnect/`. Its tests run against a fake robot (`tests/fake_robot.py`), a local server speaking the documented API, so no hardware is needed. With [uv](https://docs.astral.sh/uv/) and Python 3.14:
 
 ```sh
-uv venv -p 3.13
+uv venv -p 3.14
 source .venv/bin/activate
 uv pip install -r requirements_test.txt
 pytest
