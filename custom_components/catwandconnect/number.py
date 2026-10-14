@@ -130,6 +130,8 @@ async def async_setup_entry(
 class AxisNumber(CatWandConnectEntity, NumberEntity):
     """One Axis's position or maximum speed."""
 
+    _platform_domain = "number"
+
     entity_description: AxisNumberDescription
 
     @property
@@ -173,6 +175,8 @@ class AxisNumber(CatWandConnectEntity, NumberEntity):
 
 class SessionDurationNumber(CatWandConnectEntity, NumberEntity):
     """How long a Play session lasts, in minutes."""
+
+    _platform_domain = "number"
 
     @property
     def native_value(self) -> float | None:

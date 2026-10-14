@@ -8,6 +8,7 @@ from typing import TypeVar
 from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity, EntityDescription
+from homeassistant.util import slugify
 
 from .api import LockedOut, PinRequired, Refused, RobotError, WrongPin
 from .const import DOMAIN
@@ -15,16 +16,36 @@ from .live import RobotLive
 
 _T = TypeVar("_T")
 
+# English entity names (translations/en.json), for the entity ids: the
+# dashboards and automations in the docs use the English ids, whatever
+# Home Assistant's language. tests/test_entity_ids.py keeps them in step.
+ENGLISH_NAMES = {
+    "activity": "Activity",
+    "stow": "Stow",
+    "play_session": "Play session",
+    "session_duration": "Session duration",
+    "horizontal_position": "Horizontal position",
+    "vertical_position": "Vertical position",
+    "horizontal_max_speed": "Horizontal maximum speed",
+    "vertical_max_speed": "Vertical maximum speed",
+}
+
 
 class CatWandConnectEntity(Entity):
     """An entity fed by the robot's /ws state; unavailable while it is down."""
 
     _attr_has_entity_name = True
     _attr_should_poll = False
+    _platform_domain: str
 
     def __init__(self, live: RobotLive, description: EntityDescription) -> None:
         self.live = live
         self.entity_description = description
+        # Requested id for a new entity only; an existing one keeps its id.
+        self.entity_id = (
+            f"{self._platform_domain}."
+            f"{slugify(f'{live.entry.title} {ENGLISH_NAMES[description.key]}')}"
+        )
         self._attr_unique_id = f"{live.device_id}_{description.key}"
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, live.device_id)})
 
