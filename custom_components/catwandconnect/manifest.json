@@ -17,7 +17,7 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/vistorx/CatWandConnect/issues",
   "requirements": [],
-  "version": "0.1.1",
+  "version": "0.1.2",
   "zeroconf": [
     "_catwandconnect._tcp.local."
   ]
