@@ -13,6 +13,7 @@ The Home Assistant integration for [CatWandConnect](https://github.com/vistorx/C
 - **Finds the robot by itself.** Home Assistant shows it under *Discovered*; click **Add** and it's set up. No MQTT broker, no extra user.
 - **Talks to it directly** on your local network, with live updates and no cloud.
 - **Same entities as the MQTT connection:** Play session switch and Session duration, Stow button, Activity, position and maximum speed of each axis.
+- **Joystick card** for your dashboards: hold and drag to move the wand, like the joystick on the robot's own page. See [Joystick card](#joystick-card).
 - **Ready-made dashboard**, documented on the CatWandConnect website.
 
 The MQTT connection stays supported. Pick the one that suits you: this integration for the shortest setup, MQTT if you already run a broker.
@@ -27,6 +28,24 @@ Through [HACS](https://hacs.xyz/), as a custom repository:
 4. The robot shows under **Settings → Devices & services → Discovered**. Click **Add** (or **Add integration → CatWandConnect** and type its IP address).
 
 Full guide, dashboard and troubleshooting: [Home Assistant on the CatWandConnect website](https://vistorx.github.io/CatWandConnect/home-assistant/).
+
+## Joystick card
+
+The integration brings a dashboard card that works like the joystick on the robot's own page: put your finger on the pad and drag, the wand follows as long as you hold it, and it stops as soon as you let go. It works from anywhere Home Assistant does, including the mobile app away from home.
+
+Edit a dashboard, **Add card**, and pick **CatWandConnect joystick** (nothing to add under *Resources*: the integration loads it). Or in YAML:
+
+```yaml
+type: custom:catwandconnect-joystick-card
+device_id: 0123456789abcdef0123456789abcdef  # the robot's device; the card editor picks it for you
+title: Wand  # optional
+```
+
+Instead of `device_id` you can give `entity:` with any of the robot's entities, for example `entity: sensor.catwandconnect_activity`. Under the pad the card shows the Activity and the position of each axis; it greys out while the robot is offline.
+
+Safety: the card repeats its command every 100 ms while you hold it, and the robot stops by itself if nothing arrives for half a second, so closing the app or losing the network never leaves the wand moving. Moving the joystick ends a running Play session, like on the robot's page.
+
+After updating the integration, reload the dashboard page (or clear the app's cache) if the card doesn't show up.
 
 ## What's new
 

@@ -74,6 +74,8 @@ class FakeRobot:
     requests: list[tuple[str, str]] = field(default_factory=list)
     # Every non-GET request: (method, path, JSON body or None, sent a valid token).
     commands: list[tuple[str, str, Any, bool]] = field(default_factory=list)
+    # Every JSON frame a WebSocket client sent, in order.
+    ws_frames: list[Any] = field(default_factory=list)
     _clients: set[web.WebSocketResponse] = field(default_factory=set)
     _server: TestServer | None = None
 
@@ -402,9 +404,19 @@ class FakeRobot:
                 if msg.type != WSMsgType.TEXT:
                     continue
                 data = msg.json()
-                if data.get("t") == "stow":
+                self.ws_frames.append(data)
+                kind = data.get("t") if isinstance(data, dict) else None
+                if kind == "stow":
                     self.activity = "stowing"
                     self.play_remaining = 0
+                    await self.push_state()
+                elif kind == "move" and self.activity != "stowing":
+                    # Manual control ends a Play session without Stow.
+                    self.activity = "manual"
+                    self.play_remaining = 0
+                    await self.push_state()
+                elif kind == "stop" and self.activity == "manual":
+                    self.activity = "idle"
                     await self.push_state()
         except (asyncio.CancelledError, ConnectionResetError):
             pass
