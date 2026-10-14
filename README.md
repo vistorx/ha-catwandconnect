@@ -35,6 +35,19 @@ See [Getting help](https://vistorx.github.io/CatWandConnect/support/).
 
 Pull requests are welcome here. For anything beyond a small fix, open an issue in [CatWandConnect](https://github.com/vistorx/CatWandConnect/issues) first so we can agree on the approach. The integration only uses the robot's documented [API](https://vistorx.github.io/CatWandConnect/api/); changes to the robot itself go to the main repository.
 
+## Development
+
+The integration lives in `custom_components/catwandconnect/`. Its tests run against a fake robot (`tests/fake_robot.py`), a local server speaking the documented API, so no hardware is needed. With [uv](https://docs.astral.sh/uv/) and Python 3.13:
+
+```sh
+uv venv -p 3.13
+source .venv/bin/activate
+uv pip install -r requirements_test.txt
+pytest
+```
+
+CI runs these tests, [hassfest](https://developers.home-assistant.io/blog/2020/04/16/hassfest) and the [HACS validation](https://www.hacs.xyz/docs/publish/action/) on every pull request.
+
 ## Licence
 
 [GPL-3.0-or-later](LICENSE), like the CatWandConnect firmware. "CatWandConnect" and its logo are reserved for the official project, see the [trademark policy](https://github.com/vistorx/CatWandConnect/blob/main/TRADEMARK.md).
