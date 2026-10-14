@@ -4,6 +4,8 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## Unreleased
 
+- **See whether Home Assistant hears your robot.** With debug logging on for CatWandConnect, each announcement of the robot on your network leaves a line in the log, so when it isn't under *Discovered* you can tell a network that blocks it from a robot that is already added.
+
 ## 0.1.1 - 2026-10-14
 
 **Move the wand with your finger, right from Home Assistant.** The new joystick card works like the robot's own page: hold and drag, the wand follows; let go, it stops.
