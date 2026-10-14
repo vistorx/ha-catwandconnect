@@ -25,6 +25,16 @@
         "data_description": {
           "pin": "Le code PIN défini dans les Réglages du robot, de 4 à 8 chiffres."
         }
+      },
+      "reauth_confirm": {
+        "title": "Nouveau code PIN des réglages",
+        "description": "**{name}** n'accepte plus le code PIN des réglages enregistré. Saisis son nouveau code PIN pour que Home Assistant puisse à nouveau modifier les réglages du robot.",
+        "data": {
+          "pin": "Code PIN des réglages"
+        },
+        "data_description": {
+          "pin": "Le code PIN défini dans les Réglages du robot, de 4 à 8 chiffres."
+        }
       }
     },
     "error": {
@@ -35,7 +45,8 @@
     "abort": {
       "already_configured": "Ce robot est déjà ajouté. Son adresse a été mise à jour.",
       "cannot_connect": "Impossible de joindre le robot. Vérifie qu'il est allumé et sur le même réseau, puis réessaie.",
-      "firmware_too_old": "Le firmware de ce robot est trop ancien pour l'intégration. Mets le robot à jour en version {min_firmware} ou plus récente ([comment le mettre à jour]({update_url})), puis ajoute-le à nouveau."
+      "firmware_too_old": "Le firmware de ce robot est trop ancien pour l'intégration. Mets le robot à jour en version {min_firmware} ou plus récente ([comment le mettre à jour]({update_url})), puis ajoute-le à nouveau.",
+      "reauth_successful": "Le code PIN des réglages a été mis à jour."
     }
   },
   "entity": {
@@ -98,6 +109,12 @@
     },
     "locked_out": {
       "message": "Trop de codes PIN incorrects. Attends {retry_after} secondes, puis réessaie."
+    }
+  },
+  "issues": {
+    "firmware_too_old": {
+      "title": "Le firmware de {name} est trop ancien",
+      "description": "**{name}** utilise le firmware {version}, trop ancien pour l'intégration. Mets le robot à jour en version {min_firmware} ou plus récente ([comment le mettre à jour]({update_url})), puis recharge l'entrée de l'intégration."
     }
   }
 }

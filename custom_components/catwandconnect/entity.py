@@ -44,6 +44,10 @@ class CatWandConnectEntity(Entity):
         """
         try:
             return await command
+        except (WrongPin, PinRequired) as err:
+            # Only setup and coordinators start reauth by themselves.
+            self.live.entry.async_start_reauth(self.hass)
+            raise command_error(err) from err
         except RobotError as err:
             raise command_error(err) from err
 

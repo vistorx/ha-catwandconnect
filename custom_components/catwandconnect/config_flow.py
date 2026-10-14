@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ipaddress import IPv6Address
+from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
@@ -109,6 +110,44 @@ class CatWandConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self._async_create(pin)
         return self.async_show_form(
             step_id="pin",
+            data_schema=PIN_SCHEMA,
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> ConfigFlowResult:
+        """The stored Settings PIN was refused: ask for the new one."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for the robot's new Settings PIN and keep it once it unlocks."""
+        entry = self._get_reauth_entry()
+        errors: dict[str, str] = {}
+        placeholders = {"name": entry.title}
+        if user_input is not None:
+            pin = user_input[CONF_PIN]
+            client = CatWandConnectClient(
+                async_get_clientsession(self.hass), entry.data[CONF_HOST]
+            )
+            try:
+                await client.unlock(pin)
+            except WrongPin:
+                errors["base"] = "wrong_pin"
+            except LockedOut as err:
+                errors["base"] = "locked_out"
+                placeholders["retry_after"] = str(err.retry_after)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            else:
+                return self.async_update_reload_and_abort(
+                    entry, data_updates={CONF_PIN: pin}
+                )
+        return self.async_show_form(
+            step_id="reauth_confirm",
             data_schema=PIN_SCHEMA,
             errors=errors,
             description_placeholders=placeholders,
