@@ -26,6 +26,8 @@ async def async_setup_entry(
 class StowButton(CatWandConnectEntity, ButtonEntity):
     """Stows the wand: stops everything else and releases the servos."""
 
+    _platform_domain = "button"
+
     async def async_press(self) -> None:
         """Stow."""
         await self._command(self.live.client.stow())
