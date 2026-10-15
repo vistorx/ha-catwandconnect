@@ -52,15 +52,12 @@ def _live(
     entry_id = msg.get(CONF_ENTRY_ID)
     if CONF_DEVICE_ID in msg:
         device = dr.async_get(hass).async_get(msg[CONF_DEVICE_ID])
-        entry_id = next(
-            (
-                e
-                for e in (device.config_entries if device else ())
-                if (entry := hass.config_entries.async_get_entry(e))
-                and entry.domain == DOMAIN
-            ),
-            None,
+        entry = (
+            hass.config_entries.async_get_entry(device.config_entry_id)
+            if device and device.config_entry_id
+            else None
         )
+        entry_id = entry.entry_id if entry and entry.domain == DOMAIN else None
     elif entry_id is None:
         connection.send_error(
             msg["id"],
