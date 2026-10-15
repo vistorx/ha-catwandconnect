@@ -4,6 +4,18 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## Unreleased
 
+## 0.1.3 - 2026-10-15
+
+**The joystick card, now on every screen.** A fix for "Custom element doesn't exist catwandconnect-joystick-card" on phones and in the Home Assistant app.
+
+### Highlights
+
+- **Joystick card fixed next to other custom cards.** Some dashboard cards (installed with HACS) swap the browser's list of custom cards while the page loads. When that happened after the joystick had loaded, the dashboard no longer found it and showed "Custom element doesn't exist". The card now registers itself again in that case, so it shows up on phones, in the app and on computers alike.
+
+### Update
+
+In HACS, open CatWandConnect → **Update**, restart Home Assistant, then reload the dashboard (in the app: close it and open it again).
+
 ## 0.1.2 - 2026-10-14
 
 **The joystick in your pocket.** The joystick card now works in the Home Assistant app on your phone, and Home Assistant tells you each time it hears your robot on the network.
