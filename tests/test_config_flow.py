@@ -7,7 +7,6 @@ from ipaddress import ip_address
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
-
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
