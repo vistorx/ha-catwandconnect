@@ -89,6 +89,11 @@
       "play_session": {
         "name": "Play session"
       }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
     }
   },
   "exceptions": {
@@ -109,6 +114,21 @@
     },
     "locked_out": {
       "message": "Too many wrong PINs. Wait {retry_after} seconds, then try again."
+    },
+    "update_busy": {
+      "message": "The robot is in a Play session, a Calibration or a Speed tuning. Stop it, then install the update."
+    },
+    "update_not_available": {
+      "message": "No firmware update is available for this robot."
+    },
+    "update_download_failed": {
+      "message": "Can't download the firmware from the CatWandConnect website. Check Home Assistant's internet connection and try again."
+    },
+    "update_no_restart": {
+      "message": "The firmware was sent, but the robot hasn't come back on the network. Check that it is on; if it still runs the old version, try again."
+    },
+    "update_not_applied": {
+      "message": "The robot restarted but still runs {version}: the new firmware wasn't installed. Try again."
     }
   },
   "issues": {

@@ -6,8 +6,9 @@ of https://vistorx.github.io/CatWandConnect/api/ the integration uses are
 implemented, with the same status codes and JSON shapes.
 
 Configurable per test: Settings PIN on or off, API version (``None`` for a
-firmware too old to report one), Calibration, a busy robot, and a disconnect
-that closes every WebSocket client.
+firmware too old to report one), Calibration, a busy robot, a disconnect that
+closes every WebSocket client, and a Firmware update (``POST /api/update``)
+after which it restarts on ``restart_version``.
 """
 
 from __future__ import annotations
@@ -76,6 +77,18 @@ class FakeRobot:
     commands: list[tuple[str, str, Any, bool]] = field(default_factory=list)
     # Every JSON frame a WebSocket client sent, in order.
     ws_frames: list[Any] = field(default_factory=list)
+    # Firmware update: each image received, the version it restarts on
+    # (``None``: the same one, as when the new image doesn't boot), and an
+    # error code to refuse the image with (``wrong_chip``, ``update_failed``).
+    firmware_uploads: list[bytes] = field(default_factory=list)
+    restart_version: str | None = None
+    update_error: str | None = None
+    restart_delay: float = 0.05
+    # False: a restart leaves the sockets looking open, as a dropped TCP
+    # connection does until a heartbeat notices.
+    restart_closes_sockets: bool = True
+    restarts: int = 0
+    _restart: asyncio.Task[None] | None = None
     _clients: set[web.WebSocketResponse] = field(default_factory=set)
     _server: TestServer | None = None
 
@@ -92,6 +105,7 @@ class FakeRobot:
         app.router.add_post("/api/position", self._position)
         app.router.add_get("/api/settings", self._get_settings)
         app.router.add_put("/api/settings", self._put_settings)
+        app.router.add_post("/api/update", self._update)
         app.router.add_get("/ws", self._ws)
         return app
 
@@ -100,6 +114,8 @@ class FakeRobot:
         await self._server.start_server()
 
     async def close(self) -> None:
+        if self._restart is not None:
+            self._restart.cancel()
         await self.disconnect()
         if self._server is not None:
             await self._server.close()
@@ -198,7 +214,9 @@ class FakeRobot:
     async def _log_middleware(self, request: web.Request, handler):
         self.requests.append((request.method, request.path))
         if request.method != "GET":
-            body = await self._json_any(request)
+            # A firmware upload is multipart: leave its body to the route.
+            multipart = request.content_type == "multipart/form-data"
+            body = None if multipart else await self._json_any(request)
             self.commands.append(
                 (request.method, request.path, body, self._authorized(request))
             )
@@ -392,6 +410,40 @@ class FakeRobot:
         self.axes = axes
         await self.push_state()
         return web.json_response(self._settings())
+
+    async def _update(self, request: web.Request) -> web.Response:
+        # The real robot reads the whole upload before answering, even a refused one.
+        form = await request.post()
+        if not self._pin_ok(request):
+            return self._error(401, "pin_required")
+        upload = form.get("firmware")
+        if not isinstance(upload, web.FileField):
+            return self._error(400, "not_firmware")
+        image = upload.file.read()
+        if not image or image[0] != 0xE9:
+            return self._error(400, "not_firmware")
+        if self.update_error is not None:
+            return self._error(400, self.update_error, detail="")
+        self.firmware_uploads.append(image)
+        self._restart = asyncio.get_running_loop().create_task(self.restart())
+        return web.json_response({"ok": True, "restart": True})
+
+    async def restart(self) -> None:
+        """Restart, on `restart_version` if set: away for `restart_delay` seconds."""
+        await asyncio.sleep(0.01)
+        if self.restart_closes_sockets:
+            await self.go_offline()
+        else:
+            self.offline = True
+        self.tokens.clear()
+        if self.activity != "idle":
+            self.activity = "idle"
+            self.play_remaining = 0
+        if self.restart_version is not None:
+            self.version = self.restart_version
+        await asyncio.sleep(self.restart_delay)
+        self.restarts += 1
+        self.go_online()
 
     async def _ws(self, request: web.Request) -> web.WebSocketResponse:
         ws = web.WebSocketResponse()

@@ -7,13 +7,16 @@ The only module that knows the robot's URLs and JSON shapes
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
 
 TIMEOUT = aiohttp.ClientTimeout(total=10)
+# A firmware image is about 1.5 MB, written to flash as it arrives over Wi-Fi.
+UPDATE_TIMEOUT = aiohttp.ClientTimeout(total=600, sock_connect=10)
+UPLOAD_CHUNK = 8 * 1024
 
 AXES = ("horizontal", "vertical")
 ACTIVITIES = ("idle", "manual", "stowing", "calibrating", "tuning_speed", "playing")
@@ -60,6 +63,9 @@ class RobotInfo:
     chip: str | None
     api: int | None
     device_id: str | None
+    # Update channel and chip family; None on firmware older than the Update feed.
+    channel: str | None = None
+    chip_family: str | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +106,24 @@ class RobotState:
     calibrated: bool
     session_minutes: int | None
     name: str | None
+
+
+class _ImagePayload(aiohttp.BytesPayload):
+    """A firmware image sent in chunks, reporting the bytes sent so far."""
+
+    def __init__(self, image: bytes, progress: Callable[[int, int], None]) -> None:
+        super().__init__(image, content_type="application/octet-stream")
+        self._image = image
+        self._progress = progress
+
+    async def write(self, writer: Any) -> None:
+        await self.write_with_length(writer, None)
+
+    async def write_with_length(self, writer: Any, content_length: int | None) -> None:
+        image = self._image if content_length is None else self._image[:content_length]
+        for start in range(0, len(image), UPLOAD_CHUNK):
+            await writer.write(image[start : start + UPLOAD_CHUNK])
+            self._progress(min(start + UPLOAD_CHUNK, len(image)), len(image))
 
 
 def _number(value: Any) -> float | None:
@@ -173,12 +197,23 @@ class CatWandConnectClient:
         return f"http://{self.host}"
 
     async def _request(
-        self, method: str, path: str, json: Any = None
+        self,
+        method: str,
+        path: str,
+        json: Any = None,
+        data: Callable[[], Any] | None = None,
+        timeout: aiohttp.ClientTimeout = TIMEOUT,
     ) -> tuple[int, Any]:
+        """Send one request; `data` builds a fresh body for each attempt."""
         headers = {"Authorization": f"Bearer {self.token}"} if self.token else None
         try:
             async with self._session.request(
-                method, f"{self.url}{path}", json=json, headers=headers, timeout=TIMEOUT
+                method,
+                f"{self.url}{path}",
+                json=json,
+                data=data() if data is not None else None,
+                headers=headers,
+                timeout=timeout,
             ) as resp:
                 try:
                     body = await resp.json(content_type=None)
@@ -202,12 +237,16 @@ class CatWandConnectClient:
         """Read the robot's identity and API version."""
         body = await self._get_object("/api/info")
         api = body.get("api")
+        channel = body.get("channel")
+        family = body.get("chipFamily")
         return RobotInfo(
             name=str(body.get("name") or "CatWandConnect"),
             version=str(body.get("version", "")),
             chip=body.get("chip"),
             api=api if isinstance(api, int) and not isinstance(api, bool) else None,
             device_id=body.get("id"),
+            channel=channel if isinstance(channel, str) and channel else None,
+            chip_family=family if isinstance(family, str) and family else None,
         )
 
     async def auth(self) -> AuthState:
@@ -266,20 +305,25 @@ class CatWandConnectClient:
         raise CannotConnect(f"unlock answered {status}")
 
     async def _command(
-        self, method: str, path: str, json: Any = None
+        self,
+        method: str,
+        path: str,
+        json: Any = None,
+        data: Callable[[], Any] | None = None,
+        timeout: aiohttp.ClientTimeout = TIMEOUT,
     ) -> tuple[int, Any]:
         """Send a command; on 401 pin_required, unlock with the PIN and retry once.
 
         Raises `PinRequired` when no PIN is stored, `WrongPin` / `LockedOut`
         when unlocking fails, and `Refused` for any other 4xx error code.
         """
-        status, body = await self._request(method, path, json)
+        status, body = await self._request(method, path, json, data, timeout)
         if status == 401 and _error_code(body) == "pin_required":
             if not self.pin:
                 raise PinRequired
             self.token = None
             await self.unlock(self.pin)
-            status, body = await self._request(method, path, json)
+            status, body = await self._request(method, path, json, data, timeout)
         if 200 <= status < 300:
             return status, body
         code = _error_code(body)
@@ -305,6 +349,30 @@ class CatWandConnectClient:
         if not isinstance(body, dict):
             raise CannotConnect("PUT /api/settings answered no settings")
         return self._parse_settings(body)
+
+
+    async def update_firmware(
+        self, image: bytes, progress: Callable[[int, int], None]
+    ) -> None:
+        """Install a firmware image (POST /api/update); the robot then restarts.
+
+        With a Settings PIN on, unlocks first so the image is only sent once.
+        `progress` gets (bytes sent, total) as the upload goes.
+        """
+        auth = await self.auth()
+        if auth.enabled and not auth.authorized:
+            if not self.pin:
+                raise PinRequired
+            self.token = None
+            await self.unlock(self.pin)
+
+        def form() -> aiohttp.MultipartWriter:
+            writer = aiohttp.MultipartWriter("form-data")
+            part = writer.append_payload(_ImagePayload(image, progress))
+            part.set_content_disposition("form-data", name="firmware", filename="firmware.bin")
+            return writer
+
+        await self._command("POST", "/api/update", data=form, timeout=UPDATE_TIMEOUT)
 
 
 def _error_code(body: Any) -> str | None:
