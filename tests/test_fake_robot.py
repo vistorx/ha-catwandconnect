@@ -6,6 +6,8 @@ in https://vistorx.github.io/CatWandConnect/api/ here.
 
 from __future__ import annotations
 
+import asyncio
+
 import aiohttp
 import pytest
 
@@ -205,3 +207,41 @@ async def test_commands_are_recorded_with_their_body_and_token(
         ("PUT", "/api/settings", body, True),
         ("POST", "/api/stow", None, False),
     ]
+
+
+def _image_form(image: bytes) -> aiohttp.FormData:
+    form = aiohttp.FormData()
+    form.add_field("firmware", image, filename="firmware.bin",
+                   content_type="application/octet-stream")
+    return form
+
+
+@pytest.mark.parametrize("robot_config", [{"restart_version": "0.2.1", "restart_delay": 0.1}])
+async def test_update_takes_an_image_and_restarts_on_it(robot: FakeRobot, session) -> None:
+    image = b"\xe9" + b"x" * 5000
+    async with session.post(f"{robot.url}/api/update", data=_image_form(image)) as resp:
+        assert resp.status == 200
+        assert await resp.json() == {"ok": True, "restart": True}
+    assert robot.firmware_uploads == [image]
+    await asyncio.sleep(0.05)
+    assert robot.offline
+    await asyncio.sleep(0.2)
+    assert not robot.offline
+    assert robot.restarts == 1
+    async with session.get(f"{robot.url}/api/info") as resp:
+        assert (await resp.json())["version"] == "0.2.1"
+
+
+async def test_update_refuses_what_is_not_firmware(robot: FakeRobot, session) -> None:
+    async with session.post(f"{robot.url}/api/update", data=_image_form(b"PK\x03\x04")) as resp:
+        assert resp.status == 400
+        assert (await resp.json())["error"] == "not_firmware"
+    assert robot.firmware_uploads == []
+
+
+@pytest.mark.parametrize("robot_config", [{"pin": "2468"}])
+async def test_update_needs_the_pin(robot: FakeRobot, session) -> None:
+    async with session.post(f"{robot.url}/api/update", data=_image_form(b"\xe9abc")) as resp:
+        assert resp.status == 401
+        assert (await resp.json())["error"] == "pin_required"
+    assert robot.firmware_uploads == []

@@ -14,6 +14,7 @@ The Home Assistant integration for [CatWandConnect](https://github.com/vistorx/C
 - **Talks to it directly** on your local network, with live updates and no cloud.
 - **Same entities as the MQTT connection:** Play session switch and Session duration, Stow button, Activity, position and maximum speed of each axis.
 - **Joystick card** for your dashboards: hold and drag to move the wand, like the joystick on the robot's own page. See [Joystick card](#joystick-card).
+- **Firmware updates** from Home Assistant: it tells you when a new robot firmware is out and installs it in one click. See [Firmware updates](#firmware-updates).
 - **Ready-made dashboard**, documented on the CatWandConnect website.
 
 The MQTT connection stays supported. Pick the one that suits you: this integration for the shortest setup, MQTT if you already run a broker.
@@ -46,6 +47,16 @@ Instead of `device_id` you can give `entity:` with any of the robot's entities, 
 Safety: the card repeats its command every 100 ms while you hold it, and the robot stops by itself if nothing arrives for half a second, so closing the app or losing the network never leaves the wand moving. Moving the joystick ends a running Play session, like on the robot's page.
 
 After updating the integration, reload the dashboard page if the card doesn't show up. In the mobile app, if it shows "Configuration error", reset the app's frontend cache once: Settings → Companion app → Troubleshooting → **Reset frontend cache**. If your dashboards use YAML mode, add the resource yourself: `url: /catwandconnect/frontend/catwandconnect-joystick-card.js`, `type: module`.
+
+## Firmware updates
+
+Each robot has a **Firmware** update entity (`update.catwandconnect_firmware`, under the device's *Configuration*). It shows the firmware the robot runs and the latest one published for its Update channel (*Stable*, or *Beta* for a robot running a beta), and Home Assistant shows its usual "update available" badge in **Settings** when a newer one is out.
+
+Click **Install**: Home Assistant downloads the firmware for the robot's chip from the CatWandConnect website, sends it to the robot (with the Settings PIN you stored, if you set one) and shows the progress. The robot restarts on the new version within about a minute; settings, Calibration and Wi-Fi are kept. If anything fails, the robot keeps running its current firmware.
+
+- **Not during play.** Install is refused while the robot is in a Play session, a Calibration or a Speed tuning: stop it first.
+- **Checked every 6 hours** and when Home Assistant starts. Without internet access, no update is offered, and nothing else changes.
+- Robots on firmware older than the Update feed are offered updates too: their Update channel is taken from their version.
 
 ## What's new
 

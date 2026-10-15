@@ -28,6 +28,7 @@ ENGLISH_NAMES = {
     "vertical_position": "Vertical position",
     "horizontal_max_speed": "Horizontal maximum speed",
     "vertical_max_speed": "Vertical maximum speed",
+    "firmware": "Firmware",
 }
 
 
