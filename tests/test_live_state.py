@@ -117,7 +117,7 @@ async def test_pushed_state_updates_the_entities(
 
     for activity in ACTIVITIES:
         await robot.set_activity(activity)
-        await until(lambda: state_of(hass, ACTIVITY) == activity)
+        await until(lambda a=activity: state_of(hass, ACTIVITY) == a)
 
 
 async def test_unknown_activity_reads_as_unknown(

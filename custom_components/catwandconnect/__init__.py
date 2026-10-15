@@ -16,6 +16,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .api import CannotConnect, CatWandConnectClient
+from .card import async_register_card
 from .const import (
     CONF_PIN,
     DOMAIN,
@@ -25,7 +26,6 @@ from .const import (
     MODEL,
     UPDATE_URL,
 )
-from .card import async_register_card
 from .live import RobotLive
 from .websocket import async_register as async_register_websocket
 
