@@ -6,15 +6,17 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## 0.1.2 - 2026-10-14
 
-**Find out why your robot isn't under *Discovered*.** A small diagnostic release: Home Assistant now tells you each time it hears your robot on the network.
+**The joystick in your pocket.** The joystick card now works in the Home Assistant app on your phone, and Home Assistant tells you each time it hears your robot on the network.
 
 ### Highlights
+
+- **Joystick card in the companion app.** The card showed "Configuration error" in the Home Assistant app on phones. It is now added to your dashboard resources by itself, so the app loads it too. Nothing to set up.
 
 - **See whether Home Assistant hears your robot.** With debug logging on for CatWandConnect, each announcement of the robot leaves a line in the log (`Robot <id> announced at <address>`). No line? Your network blocks it: in a virtual machine, use a bridged network adapter. A line but no card? The robot is already added.
 
 ### Update
 
-In HACS, open CatWandConnect → **Update**, then restart Home Assistant.
+In HACS, open CatWandConnect → **Update**, then restart Home Assistant. On your phone, if the card still shows an error, clear the app's frontend cache once: Settings → Companion app → Troubleshooting → **Reset frontend cache**.
 
 ## 0.1.1 - 2026-10-14
 

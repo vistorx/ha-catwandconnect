@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from homeassistant.components.frontend import DATA_EXTRA_MODULE_URL, UrlManager
+from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.setup import async_setup_component
@@ -181,3 +182,33 @@ async def test_card_is_loaded_by_the_frontend(hass: HomeAssistant) -> None:
     assert await async_setup_component(hass, DOMAIN, {})
 
     assert any(url.startswith(f"{CARD_URL}?v=") for url in urls.urls)
+
+
+async def test_card_is_a_dashboard_resource(hass: HomeAssistant) -> None:
+    """The companion apps keep an old page: a resource loads on every dashboard."""
+    assert await async_setup_component(hass, "lovelace", {})
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    resources = hass.data[LOVELACE_DATA].resources
+    await resources.async_get_info()
+    urls = [item["url"] for item in resources.async_items()]
+    assert len([u for u in urls if u.startswith(f"{CARD_URL}?v=")]) == 1
+    (item,) = [i for i in resources.async_items() if i["url"].startswith(CARD_URL)]
+    assert item["type"] == "module"
+
+
+async def test_card_resource_follows_the_version(hass: HomeAssistant) -> None:
+    assert await async_setup_component(hass, "lovelace", {})
+    resources = hass.data[LOVELACE_DATA].resources
+    await resources.async_get_info()
+    await resources.async_create_item({"res_type": "module", "url": f"{CARD_URL}?v=0.0.1"})
+    await resources.async_create_item({"res_type": "module", "url": "/local/other.js"})
+
+    assert await async_setup_component(hass, DOMAIN, {})
+    await hass.async_block_till_done()
+
+    urls = sorted(item["url"] for item in resources.async_items())
+    assert "/local/other.js" in urls
+    card = [u for u in urls if u.startswith(CARD_URL)]
+    assert len(card) == 1 and not card[0].endswith("v=0.0.1")
