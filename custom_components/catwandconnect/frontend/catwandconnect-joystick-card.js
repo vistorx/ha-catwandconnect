@@ -307,11 +307,34 @@ class CatWandConnectJoystickCardEditor extends HTMLElement {
   }
 }
 
-if (!customElements.get('catwandconnect-joystick-card')) {
-  customElements.define('catwandconnect-joystick-card', CatWandConnectJoystickCard);
-  customElements.define('catwandconnect-joystick-card-editor', CatWandConnectJoystickCardEditor);
+// Some dashboard cards install a scoped custom element registry polyfill that
+// replaces `window.customElements` after the page has started. A card defined
+// before that lives only in the native registry, and the dashboard (which asks
+// the replacement) reports "Custom element doesn't exist". So define through
+// whatever registry is current, and check again until the page settles.
+const ELEMENTS = [
+  ['catwandconnect-joystick-card', CatWandConnectJoystickCard],
+  ['catwandconnect-joystick-card-editor', CatWandConnectJoystickCardEditor],
+];
+
+function register() {
+  for (const [tag, element] of ELEMENTS) {
+    if (customElements.get(tag)) continue;
+    try {
+      customElements.define(tag, element);
+    } catch (err) {
+      console.warn(`CatWandConnect: could not register ${tag}`, err);
+    }
+  }
+}
+
+register();
+for (const delay of [0, 250, 1000, 3000, 10000]) setTimeout(register, delay);
+window.addEventListener('load', register);
+
+window.customCards = window.customCards || [];
+if (!window.customCards.some(card => card.type === 'catwandconnect-joystick-card')) {
   const t = strings({ language: document.documentElement.lang });
-  window.customCards = window.customCards || [];
   window.customCards.push({
     type: 'catwandconnect-joystick-card',
     name: t.name,
