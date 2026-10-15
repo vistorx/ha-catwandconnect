@@ -16,7 +16,6 @@ import logging
 from types import SimpleNamespace
 
 import pytest
-
 from homeassistant import config_entries
 from homeassistant.components.zeroconf.discovery import (
     ZeroconfDiscovery,
