@@ -2,7 +2,8 @@
   "domain": "catwandconnect",
   "name": "CatWandConnect",
   "after_dependencies": [
-    "frontend"
+    "frontend",
+    "lovelace"
   ],
   "codeowners": [
     "@vistorx"

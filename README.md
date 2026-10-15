@@ -33,7 +33,7 @@ Full guide, dashboard and troubleshooting: [Home Assistant on the CatWandConnect
 
 The integration brings a dashboard card that works like the joystick on the robot's own page: put your finger on the pad and drag, the wand follows as long as you hold it, and it stops as soon as you let go. It works from anywhere Home Assistant does, including the mobile app away from home.
 
-Edit a dashboard, **Add card**, and pick **CatWandConnect joystick** (nothing to add under *Resources*: the integration loads it). Or in YAML:
+Edit a dashboard, **Add card**, and pick **CatWandConnect joystick** (nothing to add by hand: the integration adds the card to your dashboard resources itself, which the mobile app needs). Or in YAML:
 
 ```yaml
 type: custom:catwandconnect-joystick-card
@@ -45,7 +45,7 @@ Instead of `device_id` you can give `entity:` with any of the robot's entities, 
 
 Safety: the card repeats its command every 100 ms while you hold it, and the robot stops by itself if nothing arrives for half a second, so closing the app or losing the network never leaves the wand moving. Moving the joystick ends a running Play session, like on the robot's page.
 
-After updating the integration, reload the dashboard page (or clear the app's cache) if the card doesn't show up.
+After updating the integration, reload the dashboard page if the card doesn't show up. In the mobile app, if it shows "Configuration error", reset the app's frontend cache once: Settings → Companion app → Troubleshooting → **Reset frontend cache**. If your dashboards use YAML mode, add the resource yourself: `url: /catwandconnect/frontend/catwandconnect-joystick-card.js`, `type: module`.
 
 ## What's new
 
