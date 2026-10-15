@@ -89,6 +89,11 @@
       "play_session": {
         "name": "Session de jeu"
       }
+    },
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
     }
   },
   "exceptions": {
@@ -109,6 +114,21 @@
     },
     "locked_out": {
       "message": "Trop de codes PIN incorrects. Attends {retry_after} secondes, puis réessaie."
+    },
+    "update_busy": {
+      "message": "Le robot est en session de jeu, en calibration ou en réglage de vitesse. Arrête-le, puis installe la mise à jour."
+    },
+    "update_not_available": {
+      "message": "Aucune mise à jour du firmware n'est disponible pour ce robot."
+    },
+    "update_download_failed": {
+      "message": "Impossible de télécharger le firmware depuis le site de CatWandConnect. Vérifie la connexion Internet de Home Assistant et réessaie."
+    },
+    "update_no_restart": {
+      "message": "Le firmware a été envoyé, mais le robot n'est pas revenu sur le réseau. Vérifie qu'il est allumé ; s'il est toujours sur l'ancienne version, réessaie."
+    },
+    "update_not_applied": {
+      "message": "Le robot a redémarré mais tourne toujours en {version} : le nouveau firmware n'a pas été installé. Réessaie."
     }
   },
   "issues": {

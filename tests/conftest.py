@@ -20,6 +20,17 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     return
 
 
+@pytest.fixture(autouse=True)
+def no_update_feed(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Never read the real Update feed: point it at a closed local port.
+
+    Tests about firmware updates start a fake feed (tests/fake_feed.py) instead.
+    """
+    from custom_components.catwandconnect import firmware
+
+    monkeypatch.setattr(firmware, "FEED_URL", "http://127.0.0.1:9/flasher/")
+
+
 @pytest.fixture
 def robot_config() -> dict:
     """Overrides for the fake robot; parametrize or override per test."""

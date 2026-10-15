@@ -21,6 +21,7 @@ V_MAX_SPEED = "number.catwandconnect_vertical_maximum_speed"
 PLAY_SESSION = "switch.catwandconnect_play_session"
 SESSION_DURATION = "number.catwandconnect_session_duration"
 STOW = "button.catwandconnect_stow"
+FIRMWARE = "update.catwandconnect_firmware"
 
 
 async def until(predicate: Callable[[], bool], timeout: float = 5) -> None:

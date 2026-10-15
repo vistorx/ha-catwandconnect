@@ -36,6 +36,7 @@ PLATFORMS: list[Platform] = [
     Platform.NUMBER,
     Platform.SENSOR,
     Platform.SWITCH,
+    Platform.UPDATE,
 ]
 
 type CatWandConnectConfigEntry = ConfigEntry[RobotLive]
@@ -92,7 +93,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: CatWandConnectConfigEntr
         configuration_url=f"{client.url}/",
     )
 
-    live = RobotLive(hass, entry, client, device_id)
+    live = RobotLive(hass, entry, client, device_id, info)
     entry.runtime_data = live
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     live.start()

@@ -12,6 +12,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .common import (
     ACTIVITY,
+    FIRMWARE,
     H_MAX_SPEED,
     H_POSITION,
     PLAY_SESSION,
@@ -23,7 +24,7 @@ from .common import (
 )
 from .fake_robot import FakeRobot
 
-ALL = {ACTIVITY, H_MAX_SPEED, H_POSITION, PLAY_SESSION, SESSION_DURATION, STOW, V_MAX_SPEED, V_POSITION}
+ALL = {ACTIVITY, FIRMWARE, H_MAX_SPEED, H_POSITION, PLAY_SESSION, SESSION_DURATION, STOW, V_MAX_SPEED, V_POSITION}
 
 
 async def test_french_home_assistant_gets_english_ids(hass: HomeAssistant, robot: FakeRobot) -> None:

@@ -3,9 +3,10 @@
 One `RobotLive` per config entry owns the robot's WebSocket: it connects,
 receives each pushed state and tells the entities. While the socket is down the
 entities are unavailable, and it reconnects with a growing delay. After each
-(re)connection, and when Calibration or Speed tuning ends, it reads
-GET /api/settings again for the Travel limits and maximum speeds, which the
-state messages don't carry.
+(re)connection it reads GET /api/info again (the firmware version may have
+changed: a Firmware update restarts the robot), and after each (re)connection
+and when Calibration or Speed tuning ends, GET /api/settings for the Travel
+limits and maximum speeds, which the state messages don't carry.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from .api import (
     CannotConnect,
     CatWandConnectClient,
     RobotError,
+    RobotInfo,
     RobotSettings,
     RobotSocket,
     RobotState,
@@ -47,11 +49,15 @@ class RobotLive:
         entry: ConfigEntry,
         client: CatWandConnectClient,
         device_id: str,
+        info: RobotInfo,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.client = client
         self.device_id = device_id
+        self.info = info
+        # Counts the connections; a new value means the robot came back.
+        self.connections = 0
         self.state: RobotState | None = None
         self.settings: RobotSettings | None = None
         self._listeners: list[CALLBACK_TYPE] = []
@@ -90,6 +96,29 @@ class RobotLive:
         self._task = self.entry.async_create_background_task(
             self.hass, self._run(), f"{DOMAIN} {self.client.host} /ws"
         )
+
+    @callback
+    def async_reconnect(self) -> None:
+        """Drop the socket so it reconnects (after a restart it may look alive)."""
+        if self._socket is not None:
+            self.hass.async_create_task(self._socket.close())
+
+    async def async_wait_for(self, condition: Callable[[], bool]) -> None:
+        """Wait until `condition` holds, checked on every change."""
+        if condition():
+            return
+        done = asyncio.Event()
+
+        @callback
+        def check() -> None:
+            if condition():
+                done.set()
+
+        remove = self.async_add_listener(check)
+        try:
+            await done.wait()
+        finally:
+            remove()
 
     async def stop(self) -> None:
         """Close the socket and stop reconnecting."""
@@ -152,7 +181,9 @@ class RobotLive:
         socket = await self._open()
         self._socket = socket
         try:
+            self._follow_info(await self.client.info())
             self.settings = await self.client.settings()
+            self.connections += 1
             async for state in socket:
                 await self._on_state(state)
             _LOGGER.debug("Robot at %s closed the socket", self.client.host)
@@ -176,6 +207,17 @@ class RobotLive:
         if state.name is not None:
             self._follow_name(state.name)
         self._notify()
+
+    @callback
+    def _follow_info(self, info: RobotInfo) -> None:
+        """Keep the robot's info, and the device's firmware version, current."""
+        self.info = info
+        registry = dr.async_get(self.hass)
+        device = registry.async_get_device_by_identifier(
+            (DOMAIN, self.device_id), self.entry.entry_id
+        )
+        if device is not None and device.sw_version != info.version:
+            registry.async_update_device(device.id, sw_version=info.version)
 
     @callback
     def _follow_name(self, name: str) -> None:

@@ -4,6 +4,19 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-15
+
+**Robot updates, right in Home Assistant.** Home Assistant now tells you when a new CatWandConnect firmware is out and installs it on your robot in one click, without a computer or a USB cable.
+
+### Highlights
+
+- **Firmware update entity.** Each robot gets a *Firmware* entity showing the version it runs and the latest one for its Update channel (Stable, or Beta if it runs a beta). When a newer one is out, Home Assistant shows its usual update badge in **Settings**, with the release notes.
+- **Install in one click.** **Install** downloads the right firmware for your robot's chip, sends it to the robot (using your Settings PIN if you set one) and shows the progress. The robot restarts on the new version; settings, Calibration and Wi-Fi are kept, and a failed update leaves the current firmware running. It waits while your cat is playing: Install is refused during a Play session, a Calibration or a Speed tuning. See [Firmware updates](https://github.com/vistorx/ha-catwandconnect#firmware-updates).
+
+### Update
+
+In HACS, open CatWandConnect → **Update**, then restart Home Assistant. The *Firmware* entity appears on each robot's device page, under *Configuration*. Updates show up once the CatWandConnect website publishes them for Home Assistant; until then the entity simply shows the installed version.
+
 ## 0.1.3 - 2026-10-15
 
 **The joystick card, now on every screen.** A fix for "Custom element doesn't exist catwandconnect-joystick-card" on phones and in the Home Assistant app.
