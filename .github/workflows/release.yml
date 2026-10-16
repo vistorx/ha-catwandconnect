@@ -14,6 +14,9 @@ jobs:
   notes:
     name: Notes and announcement
     runs-on: ubuntu-24.04
+    # The `release` environment requires the owner's approval before the notes
+    # are rewritten and Discord is told (vistorx/CatWandConnect#204).
+    environment: release
     steps:
       - uses: actions/checkout@v7
         with:
