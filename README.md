@@ -74,7 +74,7 @@ See [Getting help](https://vistorx.github.io/CatWandConnect/support/).
 
 ## Contributing
 
-A change users notice adds a line under `## Unreleased` in `CHANGELOG.md`, written for them. Releasing `vX.Y.Z` needs that section renamed to the version: the release workflow turns it into the release notes and the Discord announcement.
+A change users notice adds a line under `## Unreleased` in `CHANGELOG.md`, written for them. Releasing `vX.Y.Z` needs that section renamed to the version: the release workflow turns it into the release notes and the Discord announcement. That workflow runs in the `release` environment and waits for the owner's approval (**Actions → Release → Review deployments**).
 
 Pull requests are welcome here. For anything beyond a small fix, open an issue in [CatWandConnect](https://github.com/vistorx/CatWandConnect/issues) first so we can agree on the approach. The integration only uses the robot's documented [API](https://vistorx.github.io/CatWandConnect/api/); changes to the robot itself go to the main repository.
 
