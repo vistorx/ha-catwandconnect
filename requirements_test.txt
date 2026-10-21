@@ -1,2 +1,2 @@
 # Pins Home Assistant 2026.10.1 (needs Python 3.14), the version CI tests against.
-pytest-homeassistant-custom-component==0.13.372
+pytest-homeassistant-custom-component==0.13.373
