@@ -5,6 +5,8 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 ## Unreleased
 
 - **When does the Play session end?** A new *Play session end* sensor (`sensor.catwandconnect_play_session_end`) shows when the running Play session ends, as "in 7 minutes" on your dashboards, and reads *Unknown* when no session runs. Use it in automations, for example to be told a few minutes before the robot Stows. Works with the firmware you already have.
+- **Play session events.** A new *Play session* event entity fires each time a Play session starts, ends, is stopped (Stop, Stow, the joystick…) or is refused (busy, not calibrated), with where it came from and why, for your automations. A *Sessions today* sensor counts the sessions started since midnight. They need a robot firmware with the Play session journal (vistorx/CatWandConnect#239); with an older one they aren't created, and they appear by themselves after the robot's update.
+- **The robot knows the time.** The integration gives the robot Home Assistant's time and time zone each time it connects, so the robot's journal shows when things happened. The robot still never connects to the internet.
 
 ## 0.2.0 - 2026-10-15
 

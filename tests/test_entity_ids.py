@@ -17,7 +17,9 @@ from .common import (
     H_POSITION,
     PLAY_SESSION,
     PLAY_SESSION_END,
+    PLAY_SESSION_EVENT,
     SESSION_DURATION,
+    SESSIONS_TODAY,
     STOW,
     V_MAX_SPEED,
     V_POSITION,
@@ -26,8 +28,8 @@ from .common import (
 from .fake_robot import FakeRobot
 
 ALL = {
-    ACTIVITY, FIRMWARE, H_MAX_SPEED, H_POSITION, PLAY_SESSION, PLAY_SESSION_END,
-    SESSION_DURATION, STOW, V_MAX_SPEED, V_POSITION,
+    ACTIVITY, FIRMWARE, H_MAX_SPEED, H_POSITION, PLAY_SESSION, PLAY_SESSION_END, PLAY_SESSION_EVENT,
+    SESSION_DURATION, SESSIONS_TODAY, STOW, V_MAX_SPEED, V_POSITION,
 }
 
 
@@ -38,6 +40,7 @@ async def test_french_home_assistant_gets_english_ids(hass: HomeAssistant, robot
     assert ids == ALL
     # The names are still translated.
     assert hass.states.get(PLAY_SESSION).attributes["friendly_name"] == "CatWandConnect Session de jeu"
+    assert hass.states.get(SESSIONS_TODAY).attributes["friendly_name"] == "CatWandConnect Sessions aujourd'hui"
 
 
 async def test_ids_follow_the_robot_name(hass: HomeAssistant, robot: FakeRobot) -> None:

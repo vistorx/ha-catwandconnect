@@ -7,22 +7,31 @@ entities are unavailable, and it reconnects with a growing delay. After each
 changed: a Firmware update restarts the robot), and after each (re)connection
 and when Calibration or Speed tuning ends, GET /api/settings for the Travel
 limits and maximum speeds, which the state messages don't carry.
+
+On each connection it also says hello (so the robot's Play session journal
+credits Home Assistant's commands) and, when the firmware keeps the journal,
+gives the robot Home Assistant's time: the robot has no other clock than the
+browser's and Home Assistant's (CatWandConnect ADR 0013). Journal events are
+passed on to the event entity as they come; old ones are never replayed.
 """
 
 from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.util import dt as dt_util
 
 from .api import (
     CannotConnect,
     CatWandConnectClient,
+    JournalEvent,
     RobotError,
     RobotInfo,
     RobotSettings,
@@ -50,6 +59,7 @@ class RobotLive:
         client: CatWandConnectClient,
         device_id: str,
         info: RobotInfo,
+        has_journal: bool = False,
     ) -> None:
         self.hass = hass
         self.entry = entry
@@ -60,7 +70,11 @@ class RobotLive:
         self.connections = 0
         self.state: RobotState | None = None
         self.settings: RobotSettings | None = None
+        # Whether the firmware keeps the Play session journal; the entities
+        # that need it are only created when it does.
+        self.has_journal = has_journal
         self._listeners: list[CALLBACK_TYPE] = []
+        self._event_listeners: list[Callable[[JournalEvent], None]] = []
         self._socket: RobotSocket | None = None
         self._task: asyncio.Task[None] | None = None
 
@@ -78,6 +92,14 @@ class RobotLive:
         """Call `update` on every change; returns a function that stops it."""
         self._listeners.append(update)
         return lambda: self._listeners.remove(update)
+
+    @callback
+    def async_add_event_listener(
+        self, on_event: Callable[[JournalEvent], None]
+    ) -> Callable[[], None]:
+        """Call `on_event` for each new Play session journal event."""
+        self._event_listeners.append(on_event)
+        return lambda: self._event_listeners.remove(on_event)
 
     @callback
     def _notify(self) -> None:
@@ -183,15 +205,41 @@ class RobotLive:
         try:
             self._follow_info(await self.client.info())
             self.settings = await self.client.settings()
+            await self._introduce(socket)
             self.connections += 1
-            async for state in socket:
-                await self._on_state(state)
+            async for message in socket:
+                if isinstance(message, JournalEvent):
+                    for on_event in list(self._event_listeners):
+                        on_event(message)
+                else:
+                    await self._on_state(message)
             _LOGGER.debug("Robot at %s closed the socket", self.client.host)
         finally:
             self._socket = None
             self.state = None
             await socket.close()
             self._notify()
+
+    async def _introduce(self, socket: RobotSocket) -> None:
+        """Say who we are and, if the robot keeps a journal, what time it is."""
+        await socket.send({"t": "hello", "client": "home_assistant"})
+        if not self.has_journal:
+            # An update may have brought the journal: reload to add its entities.
+            if await self.client.has_journal():
+                _LOGGER.debug("Robot at %s now keeps a Play session journal", self.client.host)
+                self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
+            return
+        now = dt_util.now()
+        offset = now.utcoffset()
+        try:
+            await self.client.set_time(
+                int(time.time() * 1000),
+                int(offset.total_seconds() // 60) if offset is not None else 0,
+                self.hass.config.time_zone or "",
+            )
+        except RobotError as err:
+            # Only the journal's dates and Sessions today suffer: carry on.
+            _LOGGER.debug("Robot at %s: could not set its clock: %s", self.client.host, err)
 
     async def _on_state(self, state: RobotState) -> None:
         previous = self.state

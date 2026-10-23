@@ -21,6 +21,13 @@ UPLOAD_CHUNK = 8 * 1024
 AXES = ("horizontal", "vertical")
 ACTIVITIES = ("idle", "manual", "stowing", "calibrating", "tuning_speed", "playing")
 
+# Play session journal event types (docs/api.md, "Play session journal").
+PLAY_EVENTS = ("started", "ended", "stopped", "refused")
+
+# Sent on every request and the /ws connection: the robot's Play session
+# journal credits this connection's commands to the Native integration.
+CLIENT_HEADERS = {"X-CatWandConnect-Client": "home_assistant"}
+
 
 class RobotError(Exception):
     """Base error talking to a robot."""
@@ -109,6 +116,19 @@ class RobotState:
     # Seconds left in the Play session, rounded up; None when no session
     # runs or the firmware doesn't say.
     play_remaining: int | None = None
+    # Play sessions started today; None while the robot has no clock, or on a
+    # firmware without the Play session journal.
+    sessions_today: int | None = None
+
+
+@dataclass(frozen=True)
+class JournalEvent:
+    """One Play session journal event pushed on /ws."""
+
+    id: int | None
+    what: str
+    source: str | None
+    reason: str | None
 
 
 class _ImagePayload(aiohttp.BytesPayload):
@@ -157,8 +177,8 @@ class RobotSocket:
         if cancel_heartbeat is not None:
             cancel_heartbeat()
 
-    async def __aiter__(self) -> AsyncIterator[RobotState]:
-        """Yield each state message until the robot closes the connection."""
+    async def __aiter__(self) -> AsyncIterator[RobotState | JournalEvent]:
+        """Yield each state and journal message until the robot closes the connection."""
         async for msg in self._ws:
             if msg.type is aiohttp.WSMsgType.ERROR:
                 raise CannotConnect(str(self._ws.exception()))
@@ -168,9 +188,17 @@ class RobotSocket:
                 data = msg.json()
             except ValueError:
                 continue
-            if not isinstance(data, dict) or data.get("t") != "state":
+            if not isinstance(data, dict):
+                continue
+            if data.get("t") == "journal":
+                event = _journal_event(data.get("event"))
+                if event is not None:
+                    yield event
+                continue
+            if data.get("t") != "state":
                 continue
             activity = data.get("activity")
+            today = data.get("sessionsToday")
             name = data.get("name")
             minutes = data.get("sessionMinutes")
             play = data.get("play")
@@ -185,7 +213,24 @@ class RobotSocket:
                 play_remaining=remaining
                 if isinstance(remaining, int) and not isinstance(remaining, bool)
                 else None,
+                sessions_today=(
+                    today if isinstance(today, int) and not isinstance(today, bool) else None
+                ),
             )
+
+
+def _journal_event(event: Any) -> JournalEvent | None:
+    if not isinstance(event, dict) or not isinstance(event.get("what"), str):
+        return None
+    event_id = event.get("id")
+    source = event.get("source")
+    reason = event.get("reason")
+    return JournalEvent(
+        id=event_id if isinstance(event_id, int) else None,
+        what=event["what"],
+        source=source if isinstance(source, str) else None,
+        reason=reason if isinstance(reason, str) else None,
+    )
 
 
 class CatWandConnectClient:
@@ -213,7 +258,9 @@ class CatWandConnectClient:
         timeout: aiohttp.ClientTimeout = TIMEOUT,
     ) -> tuple[int, Any]:
         """Send one request; `data` builds a fresh body for each attempt."""
-        headers = {"Authorization": f"Bearer {self.token}"} if self.token else None
+        headers = dict(CLIENT_HEADERS)
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
         try:
             async with self._session.request(
                 method,
@@ -294,10 +341,31 @@ class CatWandConnectClient:
         """Open the /ws connection the robot pushes its state on."""
         try:
             async with asyncio.timeout(TIMEOUT.total):
-                ws = await self._session.ws_connect(f"ws://{self.host}/ws", heartbeat=30)
+                ws = await self._session.ws_connect(
+                    f"ws://{self.host}/ws", heartbeat=30, headers=CLIENT_HEADERS
+                )
         except (TimeoutError, aiohttp.ClientError) as err:
             raise CannotConnect(str(err)) from err
         return RobotSocket(ws)
+
+    async def has_journal(self) -> bool:
+        """Whether the firmware keeps the Play session journal (GET /api/journal)."""
+        status, body = await self._request("GET", "/api/journal")
+        if status == 404:
+            return False
+        if status != 200 or not isinstance(body, dict):
+            raise CannotConnect(f"GET /api/journal answered {status}")
+        return True
+
+    async def set_time(self, epoch_ms: int, offset_minutes: int, zone: str) -> None:
+        """Set the Robot clock (POST /api/time, no PIN)."""
+        status, _ = await self._request(
+            "POST",
+            "/api/time",
+            {"epochMs": epoch_ms, "offset": offset_minutes, "zone": zone},
+        )
+        if status != 200:
+            raise CannotConnect(f"POST /api/time answered {status}")
 
     async def unlock(self, pin: str) -> str:
         """Unlock with the Settings PIN; keeps and returns the session token."""

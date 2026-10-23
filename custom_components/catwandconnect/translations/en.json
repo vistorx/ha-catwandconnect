@@ -55,6 +55,47 @@
         "name": "Stow"
       }
     },
+    "event": {
+      "play_session": {
+        "name": "Play session",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Started",
+              "ended": "Ended",
+              "stopped": "Stopped",
+              "refused": "Refused"
+            }
+          },
+          "source": {
+            "name": "Source",
+            "state": {
+              "device_interface": "Device interface",
+              "home_assistant_mqtt": "Home Assistant (MQTT)",
+              "home_assistant_native": "Home Assistant (integration)",
+              "paw_tap": "Paw tap",
+              "schedule": "Schedule"
+            }
+          },
+          "reason": {
+            "name": "Reason",
+            "state": {
+              "busy": "Busy",
+              "not_calibrated": "Not calibrated",
+              "rest_time": "Rest time",
+              "daily_limit": "Daily limit",
+              "quiet_hours": "Quiet hours",
+              "automatic_off": "Automatic play off",
+              "stop": "Stop",
+              "stow": "Stow",
+              "manual_control": "Manual control",
+              "calibration": "Calibration",
+              "speed_tuning": "Speed tuning"
+            }
+          }
+        }
+      }
+    },
     "number": {
       "horizontal_position": {
         "name": "Horizontal position"
@@ -86,6 +127,9 @@
       },
       "play_session_end": {
         "name": "Play session end"
+      },
+      "sessions_today": {
+        "name": "Sessions today"
       }
     },
     "switch": {

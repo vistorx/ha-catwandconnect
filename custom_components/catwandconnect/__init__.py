@@ -33,6 +33,7 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 PLATFORMS: list[Platform] = [
     Platform.BUTTON,
+    Platform.EVENT,
     Platform.NUMBER,
     Platform.SENSOR,
     Platform.SWITCH,
@@ -93,7 +94,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: CatWandConnectConfigEntr
         configuration_url=f"{client.url}/",
     )
 
-    live = RobotLive(hass, entry, client, device_id, info)
+    try:
+        has_journal = await client.has_journal()
+    except CannotConnect as err:
+        raise ConfigEntryNotReady(f"Robot at {client.host} unreachable") from err
+
+    live = RobotLive(hass, entry, client, device_id, info, has_journal)
     entry.runtime_data = live
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     live.start()
