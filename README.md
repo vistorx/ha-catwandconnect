@@ -12,7 +12,8 @@ The Home Assistant integration for [CatWandConnect](https://github.com/vistorx/C
 
 - **Finds the robot by itself.** Home Assistant shows it under *Discovered*; click **Add** and it's set up. No MQTT broker, no extra user.
 - **Talks to it directly** on your local network, with live updates and no cloud.
-- **Same entities as the MQTT connection:** Play session switch and Session duration, Play session end (when the running session ends, shown as *in 7 minutes*), Stow button, Activity, position and maximum speed of each axis.
+- **Same entities as the MQTT connection:** Play session switch and Session duration, Play session end (when the running session ends, shown as *in 7 minutes*), Stow button, Activity, position and maximum speed of each axis, and, with a firmware that keeps the Play session journal, a *Play session* event (started, ended, stopped, refused, with `source` and `reason`) and a *Sessions today* sensor. With an older firmware those two aren't created; they appear by themselves once the robot is updated.
+- **Gives the robot the time.** The robot has no clock and never goes on the internet: the integration sends it Home Assistant's time and time zone each time it connects, so its journal is dated and Sessions today is known.
 - **Joystick card** for your dashboards: hold and drag to move the wand, like the joystick on the robot's own page. See [Joystick card](#joystick-card).
 - **Firmware updates** from Home Assistant: it tells you when a new robot firmware is out and installs it in one click. See [Firmware updates](#firmware-updates).
 - **Ready-made dashboard**, documented on the CatWandConnect website.

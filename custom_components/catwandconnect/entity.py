@@ -30,6 +30,7 @@ ENGLISH_NAMES = {
     "vertical_max_speed": "Vertical maximum speed",
     "firmware": "Firmware",
     "play_session_end": "Play session end",
+    "sessions_today": "Sessions today",
 }
 
 

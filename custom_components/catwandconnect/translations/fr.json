@@ -55,6 +55,47 @@
         "name": "Ranger"
       }
     },
+    "event": {
+      "play_session": {
+        "name": "Session de jeu",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "started": "Démarrée",
+              "ended": "Terminée",
+              "stopped": "Arrêtée",
+              "refused": "Refusée"
+            }
+          },
+          "source": {
+            "name": "Source",
+            "state": {
+              "device_interface": "Interface du robot",
+              "home_assistant_mqtt": "Home Assistant (MQTT)",
+              "home_assistant_native": "Home Assistant (intégration)",
+              "paw_tap": "Coup de patte",
+              "schedule": "Programmation"
+            }
+          },
+          "reason": {
+            "name": "Raison",
+            "state": {
+              "busy": "Occupé",
+              "not_calibrated": "Pas calibré",
+              "rest_time": "Temps de repos",
+              "daily_limit": "Limite du jour",
+              "quiet_hours": "Heures calmes",
+              "automatic_off": "Jeu automatique coupé",
+              "stop": "Arrêt",
+              "stow": "Rangement",
+              "manual_control": "Contrôle manuel",
+              "calibration": "Calibration",
+              "speed_tuning": "Réglage des vitesses"
+            }
+          }
+        }
+      }
+    },
     "number": {
       "horizontal_position": {
         "name": "Position horizontale"
@@ -86,6 +127,9 @@
       },
       "play_session_end": {
         "name": "Fin de la session de jeu"
+      },
+      "sessions_today": {
+        "name": "Sessions aujourd'hui"
       }
     },
     "switch": {

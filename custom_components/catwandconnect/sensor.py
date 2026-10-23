@@ -1,4 +1,4 @@
-"""Sensors: what the robot is doing, and when its Play session ends."""
+"""Sensors: the robot's activity, when its Play session ends, and the Play sessions started today."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -36,19 +37,28 @@ PLAY_SESSION_END = SensorEntityDescription(
 # pushed: an end that moves less than this is the same end.
 END_TOLERANCE = timedelta(seconds=2)
 
+SESSIONS_TODAY = SensorEntityDescription(
+    key="sessions_today",
+    translation_key="sessions_today",
+    # Back to 0 at the robot's local midnight: a reset, not a decrease.
+    state_class=SensorStateClass.TOTAL_INCREASING,
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CatWandConnectConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Add the Activity and Play session end sensors."""
-    async_add_entities(
-        [
-            ActivitySensor(entry.runtime_data, ACTIVITY),
-            PlaySessionEndSensor(entry.runtime_data, PLAY_SESSION_END),
-        ]
-    )
+    """Add the Activity and Play session end sensors, and Sessions today if the robot keeps a journal."""
+    live = entry.runtime_data
+    entities: list[SensorEntity] = [
+        ActivitySensor(live, ACTIVITY),
+        PlaySessionEndSensor(live, PLAY_SESSION_END),
+    ]
+    if live.has_journal:
+        entities.append(SessionsTodaySensor(live, SESSIONS_TODAY))
+    async_add_entities(entities)
 
 
 class ActivitySensor(CatWandConnectEntity, SensorEntity):
@@ -101,3 +111,19 @@ class PlaySessionEndSensor(CatWandConnectEntity, SensorEntity):
     def native_value(self) -> datetime | None:
         """The end of the running Play session; None when none runs."""
         return self._end
+
+
+class SessionsTodaySensor(CatWandConnectEntity, SensorEntity):
+    """Play sessions started since the robot's local midnight.
+
+    Unknown while the robot has no clock: it gets Home Assistant's time when
+    the integration connects.
+    """
+
+    _platform_domain = "sensor"
+
+    @property
+    def native_value(self) -> int | None:
+        """The count, or unknown."""
+        state = self.live.state
+        return state.sessions_today if state is not None else None

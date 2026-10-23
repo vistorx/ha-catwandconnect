@@ -23,6 +23,8 @@ SESSION_DURATION = "number.catwandconnect_session_duration"
 STOW = "button.catwandconnect_stow"
 FIRMWARE = "update.catwandconnect_firmware"
 PLAY_SESSION_END = "sensor.catwandconnect_play_session_end"
+PLAY_SESSION_EVENT = "event.catwandconnect_play_session"
+SESSIONS_TODAY = "sensor.catwandconnect_sessions_today"
 
 
 async def until(predicate: Callable[[], bool], timeout: float = 5) -> None:

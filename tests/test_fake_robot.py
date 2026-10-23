@@ -145,6 +145,14 @@ async def test_position_clamped_into_travel_limits(robot: FakeRobot, session) ->
         assert resp.status == 400
 
 
+async def _next_state(ws) -> dict:
+    """The next state message, past journal events."""
+    while True:
+        msg = await ws.receive_json(timeout=2)
+        if msg["t"] == "state":
+            return msg
+
+
 async def test_ws_pushes_state_on_connect_and_change(robot: FakeRobot, session) -> None:
     async with session.ws_connect(f"{robot.url}/ws") as ws:
         first = await ws.receive_json(timeout=2)
@@ -153,12 +161,12 @@ async def test_ws_pushes_state_on_connect_and_change(robot: FakeRobot, session) 
         assert "play" not in first
 
         await session.post(f"{robot.url}/api/play", json={"action": "start"})
-        playing = await ws.receive_json(timeout=2)
+        playing = await _next_state(ws)
         assert playing["activity"] == "playing"
         assert playing["play"] == {"remaining": 600}
 
         await robot.set_activity("manual")
-        manual = await ws.receive_json(timeout=2)
+        manual = await _next_state(ws)
         assert manual["activity"] == "manual"
 
 
@@ -245,3 +253,40 @@ async def test_update_needs_the_pin(robot: FakeRobot, session) -> None:
         assert resp.status == 401
         assert (await resp.json())["error"] == "pin_required"
     assert robot.firmware_uploads == []
+
+
+async def test_journal_records_play_session_events_with_their_source(robot: FakeRobot, session) -> None:
+    async with session.ws_connect(f"{robot.url}/ws") as ws:
+        await ws.receive_json(timeout=2)
+        await session.post(
+            f"{robot.url}/api/play",
+            json={"action": "start"},
+            headers={"X-CatWandConnect-Client": "home_assistant"},
+        )
+        msg = await ws.receive_json(timeout=2)
+        assert msg == {
+            "t": "journal",
+            "event": {"id": 1, "what": "started", "source": "home_assistant_native",
+                      "reason": None, "at": None, "ago": 0},
+        }
+    robot.activity = "stowing"
+    await session.post(f"{robot.url}/api/play", json={"action": "start"})
+    async with session.get(f"{robot.url}/api/journal") as resp:
+        body = await resp.json()
+    assert [(e["what"], e["source"], e["reason"]) for e in body["events"]] == [
+        ("refused", "device_interface", "busy"),
+        ("started", "home_assistant_native", None),
+    ]
+    assert body["sessionsToday"] is None  # no clock yet
+    async with session.post(f"{robot.url}/api/time", json={"epochMs": 1792771200000, "offset": 120}) as resp:
+        assert resp.status == 200
+    assert robot.state()["sessionsToday"] == 1
+
+
+@pytest.mark.parametrize("robot_config", [{"journal": False}])
+async def test_firmware_without_journal_answers_404(robot: FakeRobot, session) -> None:
+    async with session.get(f"{robot.url}/api/journal") as resp:
+        assert resp.status == 404
+    async with session.post(f"{robot.url}/api/time", json={"epochMs": 1, "offset": 0}) as resp:
+        assert resp.status == 404
+    assert "sessionsToday" not in robot.state()
