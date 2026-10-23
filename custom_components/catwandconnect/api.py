@@ -106,6 +106,9 @@ class RobotState:
     calibrated: bool
     session_minutes: int | None
     name: str | None
+    # Seconds left in the Play session, rounded up; None when no session
+    # runs or the firmware doesn't say.
+    play_remaining: int | None = None
 
 
 class _ImagePayload(aiohttp.BytesPayload):
@@ -170,6 +173,8 @@ class RobotSocket:
             activity = data.get("activity")
             name = data.get("name")
             minutes = data.get("sessionMinutes")
+            play = data.get("play")
+            remaining = play.get("remaining") if isinstance(play, dict) else None
             yield RobotState(
                 h=_number(data.get("h")),
                 v=_number(data.get("v")),
@@ -177,6 +182,9 @@ class RobotSocket:
                 calibrated=bool(data.get("calibrated")),
                 session_minutes=minutes if isinstance(minutes, int) else None,
                 name=name if isinstance(name, str) and name else None,
+                play_remaining=remaining
+                if isinstance(remaining, int) and not isinstance(remaining, bool)
+                else None,
             )
 
 

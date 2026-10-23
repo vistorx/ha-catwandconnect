@@ -65,6 +65,8 @@ class FakeRobot:
     play_speed: float = 0.6
     session_minutes: int = 10
     play_remaining: int = 0
+    # False: a firmware whose state messages have no `play` field.
+    sends_play: bool = True
     axes: dict[str, dict[str, float]] = field(default_factory=_default_axes)
 
     offline: bool = False
@@ -164,7 +166,7 @@ class FakeRobot:
             "sessionMinutes": self.session_minutes,
             "name": self.name,
         }
-        if self.activity == "playing":
+        if self.activity == "playing" and self.sends_play:
             msg["play"] = {"remaining": self.play_remaining}
         return msg
 

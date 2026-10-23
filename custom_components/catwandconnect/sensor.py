@@ -1,14 +1,17 @@
-"""Activity sensor: what the robot is doing."""
+"""Sensors: what the robot is doing, and when its Play session ends."""
 
 from __future__ import annotations
+
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from . import CatWandConnectConfigEntry
 from .api import ACTIVITIES
@@ -23,14 +26,29 @@ ACTIVITY = SensorEntityDescription(
     options=list(ACTIVITIES),
 )
 
+PLAY_SESSION_END = SensorEntityDescription(
+    key="play_session_end",
+    translation_key="play_session_end",
+    device_class=SensorDeviceClass.TIMESTAMP,
+)
+
+# The robot's time left is rounded up to the second and read when a state is
+# pushed: an end that moves less than this is the same end.
+END_TOLERANCE = timedelta(seconds=2)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: CatWandConnectConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """Add the Activity sensor."""
-    async_add_entities([ActivitySensor(entry.runtime_data, ACTIVITY)])
+    """Add the Activity and Play session end sensors."""
+    async_add_entities(
+        [
+            ActivitySensor(entry.runtime_data, ACTIVITY),
+            PlaySessionEndSensor(entry.runtime_data, PLAY_SESSION_END),
+        ]
+    )
 
 
 class ActivitySensor(CatWandConnectEntity, SensorEntity):
@@ -45,3 +63,41 @@ class ActivitySensor(CatWandConnectEntity, SensorEntity):
         if state is None or state.activity not in ACTIVITIES:
             return None
         return state.activity
+
+
+class PlaySessionEndSensor(CatWandConnectEntity, SensorEntity):
+    """When the running Play session ends: Home Assistant's clock + /ws `play.remaining`.
+
+    Unknown when no session runs, and with a firmware that doesn't send the
+    time left. The end only moves when it changes by more than END_TOLERANCE,
+    so counting down doesn't rewrite the state every second.
+    """
+
+    _platform_domain = "sensor"
+    _end: datetime | None = None
+
+    async def async_added_to_hass(self) -> None:
+        """Follow the robot's state, working out the end first."""
+        self._follow()
+        self.async_on_remove(self.live.async_add_listener(self._on_change))
+
+    @callback
+    def _on_change(self) -> None:
+        self._follow()
+        self.async_write_ha_state()
+
+    @callback
+    def _follow(self) -> None:
+        state = self.live.state
+        remaining = state.play_remaining if state is not None else None
+        if remaining is None or remaining <= 0:
+            self._end = None
+            return
+        end = dt_util.utcnow() + timedelta(seconds=remaining)
+        if self._end is None or abs(end - self._end) > END_TOLERANCE:
+            self._end = end
+
+    @property
+    def native_value(self) -> datetime | None:
+        """The end of the running Play session; None when none runs."""
+        return self._end

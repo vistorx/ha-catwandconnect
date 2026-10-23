@@ -16,6 +16,7 @@ from .common import (
     H_MAX_SPEED,
     H_POSITION,
     PLAY_SESSION,
+    PLAY_SESSION_END,
     SESSION_DURATION,
     STOW,
     V_MAX_SPEED,
@@ -24,7 +25,10 @@ from .common import (
 )
 from .fake_robot import FakeRobot
 
-ALL = {ACTIVITY, FIRMWARE, H_MAX_SPEED, H_POSITION, PLAY_SESSION, SESSION_DURATION, STOW, V_MAX_SPEED, V_POSITION}
+ALL = {
+    ACTIVITY, FIRMWARE, H_MAX_SPEED, H_POSITION, PLAY_SESSION, PLAY_SESSION_END,
+    SESSION_DURATION, STOW, V_MAX_SPEED, V_POSITION,
+}
 
 
 async def test_french_home_assistant_gets_english_ids(hass: HomeAssistant, robot: FakeRobot) -> None:

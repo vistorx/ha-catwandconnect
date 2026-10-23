@@ -83,6 +83,9 @@
           "tuning_speed": "Tuning speed",
           "playing": "Playing"
         }
+      },
+      "play_session_end": {
+        "name": "Play session end"
       }
     },
     "switch": {
