@@ -29,6 +29,7 @@ ENGLISH_NAMES = {
     "horizontal_max_speed": "Horizontal maximum speed",
     "vertical_max_speed": "Vertical maximum speed",
     "firmware": "Firmware",
+    "play_session_end": "Play session end",
 }
 
 
