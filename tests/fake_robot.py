@@ -9,6 +9,12 @@ Configurable per test: Settings PIN on or off, API version (``None`` for a
 firmware too old to report one), Calibration, a busy robot, a disconnect that
 closes every WebSocket client, and a Firmware update (``POST /api/update``)
 after which it restarts on ``restart_version``.
+
+The Play session journal (firmware with ``journal=True``, the default):
+``GET /api/journal``, ``POST /api/time``, ``sessionsToday`` in the state and
+``{"t":"journal"}`` messages. Commands record their events with the source the
+firmware would: ``home_assistant_native`` for requests carrying
+``X-CatWandConnect-Client: home_assistant`` and sockets that said hello.
 """
 
 from __future__ import annotations
@@ -75,7 +81,8 @@ class FakeRobot:
     failed_unlocks: int = 0
     locked_for: int = 0
     requests: list[tuple[str, str]] = field(default_factory=list)
-    # Every non-GET request: (method, path, JSON body or None, sent a valid token).
+    # Every non-GET request but POST /api/time (see `clock`): (method, path,
+    # JSON body or None, sent a valid token).
     commands: list[tuple[str, str, Any, bool]] = field(default_factory=list)
     # Every JSON frame a WebSocket client sent, in order.
     ws_frames: list[Any] = field(default_factory=list)
@@ -90,6 +97,14 @@ class FakeRobot:
     # connection does until a heartbeat notices.
     restart_closes_sockets: bool = True
     restarts: int = 0
+    # Play session journal: False for a firmware without it (no routes, no
+    # sessionsToday). `clock` is the last POST /api/time body, None while unset.
+    journal: bool = True
+    journal_events: list[dict[str, Any]] = field(default_factory=list)
+    sessions_today: int = 0
+    clock: dict[str, Any] | None = None
+    time_headers: list[str | None] = field(default_factory=list)
+    hello_clients: int = 0
     _restart: asyncio.Task[None] | None = None
     _clients: set[web.WebSocketResponse] = field(default_factory=set)
     _server: TestServer | None = None
@@ -109,6 +124,8 @@ class FakeRobot:
         app.router.add_put("/api/settings", self._put_settings)
         app.router.add_post("/api/update", self._update)
         app.router.add_get("/ws", self._ws)
+        app.router.add_get("/api/journal", self._get_journal)
+        app.router.add_post("/api/time", self._post_time)
         return app
 
     async def start(self) -> None:
@@ -168,7 +185,32 @@ class FakeRobot:
         }
         if self.activity == "playing" and self.sends_play:
             msg["play"] = {"remaining": self.play_remaining}
+        if self.journal:
+            msg["sessionsToday"] = self.sessions_today if self.clock else None
         return msg
+
+    async def record(
+        self, what: str, source: str = "device_interface", reason: str | None = None
+    ) -> None:
+        """Record a Play session event and push it, as the firmware does."""
+        if not self.journal:
+            await self.push_state()
+            return
+        event = {
+            "id": len(self.journal_events) + 1,
+            "what": what,
+            "source": source,
+            "reason": reason,
+            "at": None,
+            "ago": 0,
+        }
+        self.journal_events.append(event)
+        if what == "started":
+            self.sessions_today += 1
+        for ws in list(self._clients):
+            if not ws.closed:
+                await ws.send_json({"t": "journal", "event": event})
+        await self.push_state()
 
     async def push_state(self) -> None:
         """Send the state to every WebSocket client, as on any change."""
@@ -215,7 +257,7 @@ class FakeRobot:
     @web.middleware
     async def _log_middleware(self, request: web.Request, handler):
         self.requests.append((request.method, request.path))
-        if request.method != "GET":
+        if request.method != "GET" and request.path != "/api/time":
             # A firmware upload is multipart: leave its body to the route.
             multipart = request.content_type == "multipart/form-data"
             body = None if multipart else await self._json_any(request)
@@ -319,6 +361,37 @@ class FakeRobot:
         self.tokens.add(token)
         return web.json_response({"token": token})
 
+    @staticmethod
+    def _source(request: web.Request) -> str:
+        native = request.headers.get("X-CatWandConnect-Client") == "home_assistant"
+        return "home_assistant_native" if native else "device_interface"
+
+    async def _get_journal(self, request: web.Request) -> web.Response:
+        if not self.journal:
+            raise web.HTTPNotFound
+        return web.json_response(
+            {
+                "clock": {"set": self.clock is not None},
+                "sessionsToday": self.sessions_today if self.clock else None,
+                "events": list(reversed(self.journal_events)),
+            }
+        )
+
+    async def _post_time(self, request: web.Request) -> web.Response:
+        if not self.journal:
+            raise web.HTTPNotFound
+        body = await self._json(request)
+        if (
+            body is None
+            or not isinstance(body.get("epochMs"), (int, float))
+            or not isinstance(body.get("offset"), int)
+        ):
+            return self._error(400, "invalid_request")
+        self.clock = body
+        self.time_headers.append(request.headers.get("X-CatWandConnect-Client"))
+        await self.push_state()
+        return web.json_response({"set": True, "sessionsToday": self.sessions_today})
+
     async def _get_play(self, request: web.Request) -> web.Response:
         return web.json_response(self._play())
 
@@ -327,17 +400,20 @@ class FakeRobot:
         if body is None:
             return self._error(400, "invalid_json")
         action = body.get("action")
+        source = self._source(request)
         if action == "stop":
             if self.activity == "playing":
                 self.activity = "stowing"
                 self.play_remaining = 0
-                await self.push_state()
+                await self.record("stopped", source, "stop")
             return web.json_response(self._play())
         if action != "start":
             return self._error(400, "invalid_request")
         if not self.calibrated:
+            await self.record("refused", source, "not_calibrated")
             return self._error(409, "not_calibrated")
         if self.activity in ("stowing", "calibrating", "tuning_speed"):
+            await self.record("refused", source, "busy")
             return self._error(409, "busy")
         if "sessionMinutes" in body:
             minutes = body["sessionMinutes"]
@@ -346,7 +422,7 @@ class FakeRobot:
             self.session_minutes = minutes
         self.activity = "playing"
         self.play_remaining = self.session_minutes * 60
-        await self.push_state()
+        await self.record("started", source)
         return web.json_response(self._play())
 
     async def _stow(self, request: web.Request) -> web.Response:
@@ -460,7 +536,9 @@ class FakeRobot:
                 data = msg.json()
                 self.ws_frames.append(data)
                 kind = data.get("t") if isinstance(data, dict) else None
-                if kind == "stow":
+                if kind == "hello" and data.get("client") == "home_assistant":
+                    self.hello_clients += 1
+                elif kind == "stow":
                     self.activity = "stowing"
                     self.play_remaining = 0
                     await self.push_state()

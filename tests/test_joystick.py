@@ -90,7 +90,7 @@ async def test_unknown_device_is_an_error(
 
     assert not msg["success"]
     assert msg["error"]["code"] == "not_found"
-    assert robot.ws_frames == []
+    assert [f for f in robot.ws_frames if f.get("t") != "hello"] == []
 
 
 async def test_offline_robot_is_an_error(
@@ -147,7 +147,7 @@ async def test_move_needs_numbers(
 
     assert not msg["success"]
     assert msg["error"]["code"] == "invalid_format"
-    assert robot.ws_frames == []
+    assert [f for f in robot.ws_frames if f.get("t") != "hello"] == []
 
 
 async def test_move_needs_a_robot(
