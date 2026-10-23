@@ -4,6 +4,8 @@ What changed in each version of the CatWandConnect integration for Home Assistan
 
 ## Unreleased
 
+- **When does the Play session end?** A new *Play session end* sensor (`sensor.catwandconnect_play_session_end`) shows when the running Play session ends, as "in 7 minutes" on your dashboards, and reads *Unknown* when no session runs. Use it in automations, for example to be told a few minutes before the robot Stows. Works with the firmware you already have.
+
 ## 0.2.0 - 2026-10-15
 
 **Robot updates, right in Home Assistant.** Home Assistant now tells you when a new CatWandConnect firmware is out and installs it on your robot in one click, without a computer or a USB cable.

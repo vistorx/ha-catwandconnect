@@ -83,6 +83,9 @@
           "tuning_speed": "Réglage de vitesse",
           "playing": "Session de jeu"
         }
+      },
+      "play_session_end": {
+        "name": "Fin de la session de jeu"
       }
     },
     "switch": {
